@@ -129,18 +129,16 @@ local function GetFishPickupsFolder()
     return Workspace:FindFirstChild("FishPickups")
 end
 
-local function GetFishTarget(Object)
-    local Folder = GetFishPickupsFolder()
-
-    if not Folder or not Object or not Object:IsDescendantOf(Folder) then
-        return nil
+local function IsFishESPObject(Object)
+    if not Object then
+        return false
     end
 
-    if Object:IsA("Model") and Object.Name == "FishPickups" then
-        return Object
+    if Object:IsA("Sound") then
+        return false
     end
 
-    return nil
+    return Object:IsA("Model") or Object:IsA("BasePart")
 end
 
 local function AddFishESP(Object)
@@ -148,14 +146,22 @@ local function AddFishESP(Object)
         return
     end
 
-    local Fish = GetFishTarget(Object)
+    local Folder = GetFishPickupsFolder()
 
-    if not Fish or FishESPObjects[Fish] then
+    if not Folder or not Object:IsDescendantOf(Folder) then
         return
     end
 
-    if AddESP(Fish, "Fish", FishESPColor) then
-        FishESPObjects[Fish] = true
+    if not IsFishESPObject(Object) then
+        return
+    end
+
+    if FishESPObjects[Object] then
+        return
+    end
+
+    if AddESP(Object, "Fish", FishESPColor) then
+        FishESPObjects[Object] = true
     end
 end
 
@@ -167,7 +173,7 @@ local function ScanForFish()
     end
 
     for _, Object in ipairs(Folder:GetDescendants()) do
-        if Object:IsA("Model") and Object.Name == "FishPickups" then
+        if IsFishESPObject(Object) then
             AddFishESP(Object)
         end
     end
@@ -258,11 +264,12 @@ local FishAddedConnection = Workspace.DescendantAdded:Connect(function(Object)
     end
 
     local Folder = GetFishPickupsFolder()
+
     if not Folder or not Object:IsDescendantOf(Folder) then
         return
     end
 
-    if Object:IsA("Model") and Object.Name == "FishPickups" then
+    if IsFishESPObject(Object) then
         task.defer(function()
             AddFishESP(Object)
         end)
@@ -272,13 +279,6 @@ end)
 local FishRemovingConnection = Workspace.DescendantRemoving:Connect(function(Object)
     if FishESPObjects[Object] then
         RemoveFishESP(Object)
-        return
-    end
-
-    for Fish in pairs(FishESPObjects) do
-        if Fish == Object or not Fish:IsDescendantOf(Workspace) then
-            RemoveFishESP(Fish)
-        end
     end
 end)
 
