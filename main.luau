@@ -136,18 +136,8 @@ local function GetFishTarget(Object)
         return nil
     end
 
-    if Object:IsA("Model") or Object:IsA("BasePart") then
+    if Object:IsA("Model") and Object.Name == "FishPickups" then
         return Object
-    end
-
-    local Model = Object:FindFirstChildWhichIsA("Model", true)
-    if Model then
-        return Model
-    end
-
-    local Part = Object:FindFirstChildWhichIsA("BasePart", true)
-    if Part then
-        return Part
     end
 
     return nil
@@ -177,7 +167,7 @@ local function ScanForFish()
     end
 
     for _, Object in ipairs(Folder:GetDescendants()) do
-        if Object:IsA("Model") or Object:IsA("BasePart") then
+        if Object:IsA("Model") and Object.Name == "FishPickups" then
             AddFishESP(Object)
         end
     end
@@ -272,9 +262,11 @@ local FishAddedConnection = Workspace.DescendantAdded:Connect(function(Object)
         return
     end
 
-    task.defer(function()
-        AddFishESP(Object)
-    end)
+    if Object:IsA("Model") and Object.Name == "FishPickups" then
+        task.defer(function()
+            AddFishESP(Object)
+        end)
+    end
 end)
 
 local FishRemovingConnection = Workspace.DescendantRemoving:Connect(function(Object)
