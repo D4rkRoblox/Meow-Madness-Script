@@ -57,16 +57,20 @@ local FishESPObjects = {}
 
 local function AddESP(Object, Text, Color)
     if not Object then
-        return
+        return false
     end
+
     if not Object:IsA("BasePart") and not Object:IsA("Model") then
-        return
+        return false
     end
+
     ESPLibrary:AddESP({
         Object = Object,
         Text = Text,
         Color = Color
     })
+
+    return true
 end
 
 local function RemoveESP(Object)
@@ -102,8 +106,9 @@ local function AddPlayerESP(Player)
         return
     end
 
-    AddESP(Character, Player.Name, PlayerESPColor)
-    PlayerESPObjects[Player] = Character
+    if AddESP(Character, Player.Name, PlayerESPColor) then
+        PlayerESPObjects[Player] = Character
+    end
 end
 
 local function SetPlayerESP(Value)
@@ -120,22 +125,68 @@ local function SetPlayerESP(Value)
     end
 end
 
-local function IsCrayfish(Object)
-    return Object.Name == "Crayfish"
-        and (Object:IsA("BasePart") or Object:IsA("Model"))
+local function GetCrayfishTarget(Object)
+    if not Object or not Object:IsDescendantOf(Workspace) then
+        return nil
+    end
+
+    local Current = Object
+
+    while Current and Current ~= Workspace do
+        if string.lower(Current.Name) == "crayfish" then
+            if Current:IsA("Model") or Current:IsA("BasePart") then
+                return Current
+            end
+
+            local Model = Current:FindFirstChildWhichIsA("Model", true)
+            if Model then
+                return Model
+            end
+
+            local Part = Current:FindFirstChildWhichIsA("BasePart", true)
+            if Part then
+                return Part
+            end
+
+            return nil
+        end
+
+        Current = Current.Parent
+    end
+
+    return nil
+end
+
+local function IsCrayfishObject(Object)
+    return GetCrayfishTarget(Object) ~= nil
 end
 
 local function AddFishESP(Object)
-    if not FishESPEnabled or not IsCrayfish(Object) then
+    if not FishESPEnabled then
         return
     end
 
-    if FishESPObjects[Object] then
+    local Fish = GetCrayfishTarget(Object)
+
+    if not Fish then
         return
     end
 
-    AddESP(Object, "Crayfish", FishESPColor)
-    FishESPObjects[Object] = true
+    if FishESPObjects[Fish] then
+        return
+    end
+
+    if AddESP(Fish, "Crayfish", FishESPColor) then
+        FishESPObjects[Fish] = true
+    end
+end
+
+local function ScanForFish()
+    for _, Object in ipairs(Workspace:GetDescendants()) do
+        if Object.Name == "Crayfish" or IsCrayfishObject(Object) then
+            AddFishESP(Object)
+        end
+    end
 end
 
 local function RemoveFishESP(Object)
@@ -149,9 +200,7 @@ local function SetFishESP(Value)
     FishESPEnabled = Value
 
     if Value then
-        for _, Object in ipairs(Workspace:GetDescendants()) do
-            AddFishESP(Object)
-        end
+        ScanForFish()
     else
         for Object in pairs(FishESPObjects) do
             RemoveFishESP(Object)
@@ -191,6 +240,7 @@ local function SetupPlayer(Player)
 
     PlayerConnections[Player] = Player.CharacterAdded:Connect(function()
         task.wait(0.15)
+
         if PlayerESPEnabled then
             AddPlayerESP(Player)
         end
@@ -219,7 +269,11 @@ local PlayerRemovingConnection = Players.PlayerRemoving:Connect(function(Player)
 end)
 
 local FishAddedConnection = Workspace.DescendantAdded:Connect(function(Object)
-    if FishESPEnabled and IsCrayfish(Object) then
+    if not FishESPEnabled then
+        return
+    end
+
+    if Object.Name == "Crayfish" or IsCrayfishObject(Object) then
         task.defer(function()
             AddFishESP(Object)
         end)
@@ -227,8 +281,31 @@ local FishAddedConnection = Workspace.DescendantAdded:Connect(function(Object)
 end)
 
 local FishRemovingConnection = Workspace.DescendantRemoving:Connect(function(Object)
-    if FishESPObjects[Object] then
-        FishESPObjects[Object] = nil
+    local DirectFish = FishESPObjects[Object]
+
+    if DirectFish then
+        RemoveFishESP(Object)
+        return
+    end
+
+    local Target = GetCrayfishTarget(Object)
+
+    if Target and FishESPObjects[Target] then
+        task.defer(function()
+            if not Target:IsDescendantOf(Workspace) then
+                RemoveFishESP(Target)
+            end
+        end)
+    end
+end)
+
+task.spawn(function()
+    while not ESPLibrary.Unloaded do
+        if FishESPEnabled then
+            ScanForFish()
+        end
+
+        task.wait(1)
     end
 end)
 
@@ -332,6 +409,7 @@ local function TeleportToPlayer(TargetPlayer)
     end)
 
     Root = GetCharacterRoot(LocalPlayer.Character)
+
     if Root then
         Root.CFrame = TargetCFrame
     end
@@ -374,6 +452,7 @@ RageLeft:AddToggle("RageEnabled", {
     Default = false,
     Callback = function(Value)
         RageEnabled = Value
+
         if Value then
             task.spawn(RageTeleportLoop)
         end
@@ -492,6 +571,7 @@ FishLeft:AddToggle("FishESPArrows", {
 })
 
 local ESPSettings = VisualsTab:AddRightGroupbox("ESP Settings")
+
 ESPSettings:AddToggle("ESPRainbow", {
     Text = "Rainbow Effect",
     Default = false,
@@ -594,6 +674,7 @@ ESPSettings:AddDropdown("ESPTextFont", {
         local Success, Font = pcall(function()
             return Enum.Font[Value]
         end)
+
         if Success and Font then
             ESPLibrary:SetFont(Font)
         end
@@ -652,6 +733,7 @@ Library:OnUnload(function()
         if Connection then
             Connection:Disconnect()
         end
+
         RemovePlayerESP(Player)
     end
 
