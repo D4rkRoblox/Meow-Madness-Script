@@ -15,7 +15,7 @@ local Window = Library:CreateWindow({
 
 local MainTab = Window:AddTab({
     Name = "Main",
-    Icon = "home",
+    Icon = "terminal",
     Description = "Main features",
     Order = 1
 })
