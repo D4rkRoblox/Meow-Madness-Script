@@ -125,40 +125,32 @@ local function SetPlayerESP(Value)
     end
 end
 
-local function GetCrayfishTarget(Object)
-    if not Object or not Object:IsDescendantOf(Workspace) then
+local function GetFishPickupsFolder()
+    return Workspace:FindFirstChild("FishPickups")
+end
+
+local function GetFishTarget(Object)
+    local Folder = GetFishPickupsFolder()
+
+    if not Folder or not Object or not Object:IsDescendantOf(Folder) then
         return nil
     end
 
-    local Current = Object
+    if Object:IsA("Model") or Object:IsA("BasePart") then
+        return Object
+    end
 
-    while Current and Current ~= Workspace do
-        if string.lower(Current.Name) == "crayfish" then
-            if Current:IsA("Model") or Current:IsA("BasePart") then
-                return Current
-            end
+    local Model = Object:FindFirstChildWhichIsA("Model", true)
+    if Model then
+        return Model
+    end
 
-            local Model = Current:FindFirstChildWhichIsA("Model", true)
-            if Model then
-                return Model
-            end
-
-            local Part = Current:FindFirstChildWhichIsA("BasePart", true)
-            if Part then
-                return Part
-            end
-
-            return nil
-        end
-
-        Current = Current.Parent
+    local Part = Object:FindFirstChildWhichIsA("BasePart", true)
+    if Part then
+        return Part
     end
 
     return nil
-end
-
-local function IsCrayfishObject(Object)
-    return GetCrayfishTarget(Object) ~= nil
 end
 
 local function AddFishESP(Object)
@@ -166,24 +158,26 @@ local function AddFishESP(Object)
         return
     end
 
-    local Fish = GetCrayfishTarget(Object)
+    local Fish = GetFishTarget(Object)
 
-    if not Fish then
+    if not Fish or FishESPObjects[Fish] then
         return
     end
 
-    if FishESPObjects[Fish] then
-        return
-    end
-
-    if AddESP(Fish, "Crayfish", FishESPColor) then
+    if AddESP(Fish, "Fish", FishESPColor) then
         FishESPObjects[Fish] = true
     end
 end
 
 local function ScanForFish()
-    for _, Object in ipairs(Workspace:GetDescendants()) do
-        if Object.Name == "Crayfish" or IsCrayfishObject(Object) then
+    local Folder = GetFishPickupsFolder()
+
+    if not Folder then
+        return
+    end
+
+    for _, Object in ipairs(Folder:GetDescendants()) do
+        if Object:IsA("Model") or Object:IsA("BasePart") then
             AddFishESP(Object)
         end
     end
@@ -273,29 +267,26 @@ local FishAddedConnection = Workspace.DescendantAdded:Connect(function(Object)
         return
     end
 
-    if Object.Name == "Crayfish" or IsCrayfishObject(Object) then
-        task.defer(function()
-            AddFishESP(Object)
-        end)
+    local Folder = GetFishPickupsFolder()
+    if not Folder or not Object:IsDescendantOf(Folder) then
+        return
     end
+
+    task.defer(function()
+        AddFishESP(Object)
+    end)
 end)
 
 local FishRemovingConnection = Workspace.DescendantRemoving:Connect(function(Object)
-    local DirectFish = FishESPObjects[Object]
-
-    if DirectFish then
+    if FishESPObjects[Object] then
         RemoveFishESP(Object)
         return
     end
 
-    local Target = GetCrayfishTarget(Object)
-
-    if Target and FishESPObjects[Target] then
-        task.defer(function()
-            if not Target:IsDescendantOf(Workspace) then
-                RemoveFishESP(Target)
-            end
-        end)
+    for Fish in pairs(FishESPObjects) do
+        if Fish == Object or not Fish:IsDescendantOf(Workspace) then
+            RemoveFishESP(Fish)
+        end
     end
 end)
 
