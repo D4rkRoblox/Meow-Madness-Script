@@ -9,11 +9,126 @@ local ESPLibrary = loadstring(game:HttpGet(
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
+local Lighting = game:GetService("Lighting")
+
+local OriginalLighting = {
+    Brightness = Lighting.Brightness,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ColorShift_Top = Lighting.ColorShift_Top,
+    ColorShift_Bottom = Lighting.ColorShift_Bottom,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
+    FogColor = Lighting.FogColor
+}
+
+local FullBrightEnabled = false
+local FullBrightIntensity = 10
+local FogEnabled = false
+local FogStartValue = Lighting.FogStart
+local FogEndValue = Lighting.FogEnd
+local FogColorValue = Lighting.FogColor
+local CustomSky = nil
+
+local SkyPresets = {
+    ["Purple Nebula"] = {
+        SkyboxBk = "rbxassetid://159454299",
+        SkyboxDn = "rbxassetid://159454296",
+        SkyboxFt = "rbxassetid://159454293",
+        SkyboxLf = "rbxassetid://159454286",
+        SkyboxRt = "rbxassetid://159454300",
+        SkyboxUp = "rbxassetid://159454288"
+    },
+    ["Dusty Clouds"] = {
+        SkyboxBk = "rbxassetid://252760981",
+        SkyboxDn = "rbxassetid://252763035",
+        SkyboxFt = "rbxassetid://252761439",
+        SkyboxLf = "rbxassetid://252760980",
+        SkyboxRt = "rbxassetid://252760986",
+        SkyboxUp = "rbxassetid://252762652"
+    },
+    ["Night Sky"] = {
+        SkyboxBk = "rbxassetid://12064107",
+        SkyboxDn = "rbxassetid://12064152",
+        SkyboxFt = "rbxassetid://12064121",
+        SkyboxLf = "rbxassetid://12063984",
+        SkyboxRt = "rbxassetid://12064115",
+        SkyboxUp = "rbxassetid://12064131"
+    },
+    ["Pink Daylight"] = {
+        SkyboxBk = "rbxassetid://271042516",
+        SkyboxDn = "rbxassetid://271077243",
+        SkyboxFt = "rbxassetid://271042556",
+        SkyboxLf = "rbxassetid://271042310",
+        SkyboxRt = "rbxassetid://271042467",
+        SkyboxUp = "rbxassetid://271077958"
+    },
+    ["Sunset"] = {
+        SkyboxBk = "rbxassetid://323494035",
+        SkyboxDn = "rbxassetid://323494368",
+        SkyboxFt = "rbxassetid://323494130",
+        SkyboxLf = "rbxassetid://323494252",
+        SkyboxRt = "rbxassetid://323494067",
+        SkyboxUp = "rbxassetid://323493360"
+    }
+}
+
+local function ApplyFullBright()
+    if FullBrightEnabled then
+        Lighting.Brightness = FullBrightIntensity
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+    else
+        Lighting.Brightness = OriginalLighting.Brightness
+        Lighting.Ambient = OriginalLighting.Ambient
+        Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+        Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
+        Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
+    end
+end
+
+local function SetSkyPreset(Name)
+    if CustomSky and CustomSky.Parent then
+        CustomSky:Destroy()
+        CustomSky = nil
+    end
+
+    local Preset = SkyPresets[Name]
+    if not Preset then
+        return
+    end
+
+    local Sky = Instance.new("Sky")
+    Sky.Name = "MeowMadness_CustomSky"
+    Sky.SkyboxBk = Preset.SkyboxBk
+    Sky.SkyboxDn = Preset.SkyboxDn
+    Sky.SkyboxFt = Preset.SkyboxFt
+    Sky.SkyboxLf = Preset.SkyboxLf
+    Sky.SkyboxRt = Preset.SkyboxRt
+    Sky.SkyboxUp = Preset.SkyboxUp
+    Sky.Parent = Lighting
+    CustomSky = Sky
+end
+
+local function ApplyFog()
+    if FogEnabled then
+        Lighting.FogStart = FogStartValue
+        Lighting.FogEnd = FogEndValue
+        Lighting.FogColor = FogColorValue
+    else
+        Lighting.FogStart = OriginalLighting.FogStart
+        Lighting.FogEnd = OriginalLighting.FogEnd
+        Lighting.FogColor = OriginalLighting.FogColor
+    end
+end
+
 
 local Window = Library:CreateWindow({
     Title = "Meow Madness",
     Footer = "v1.0.0",
-    ToggleKeybind = Enum.KeyCode.RightControl,
+    ToggleKeybind = Enum.KeyCode.RightShift,
     Center = true,
     AutoShow = true
 })
@@ -665,6 +780,82 @@ RageRight:AddSlider("RageUpdateInterval", {
     end
 })
 
+local LightingLeft = VisualsTab:AddLeftGroupbox("Lighting")
+
+LightingLeft:AddToggle("FullBright", {
+    Text = "FullBright",
+    Default = false,
+    Callback = function(Value)
+        FullBrightEnabled = Value
+        ApplyFullBright()
+    end
+})
+
+LightingLeft:AddSlider("FullBrightIntensity", {
+    Text = "FullBright Intensity",
+    Default = 10,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        FullBrightIntensity = Value
+        ApplyFullBright()
+    end
+})
+
+LightingLeft:AddDropdown("SkyChanger", {
+    Text = "Sky Changer",
+    Values = {"Default", "Purple Nebula", "Dusty Clouds", "Night Sky", "Pink Daylight", "Sunset"},
+    Default = 1,
+    Callback = function(Value)
+        SetSkyPreset(Value)
+    end
+})
+
+local FogGroup = VisualsTab:AddRightGroupbox("Fog")
+
+FogGroup:AddToggle("FogEnabled", {
+    Text = "Fog Enabled",
+    Default = false,
+    Callback = function(Value)
+        FogEnabled = Value
+        ApplyFog()
+    end
+})
+
+FogGroup:AddSlider("FogStart", {
+    Text = "Fog Start",
+    Default = math.clamp(FogStartValue, 0, 5000),
+    Min = 0,
+    Max = 5000,
+    Rounding = 0,
+    Callback = function(Value)
+        FogStartValue = Value
+        ApplyFog()
+    end
+})
+
+FogGroup:AddSlider("FogEnd", {
+    Text = "Fog End",
+    Default = math.clamp(FogEndValue, 10, 10000),
+    Min = 10,
+    Max = 10000,
+    Rounding = 0,
+    Callback = function(Value)
+        FogEndValue = Value
+        ApplyFog()
+    end
+})
+
+FogGroup:AddColorPicker("FogColor", {
+    Default = FogColorValue,
+    Title = "Fog Color",
+    Callback = function(Value)
+        FogColorValue = Value
+        ApplyFog()
+    end
+})
+
 local VisualsLeft = VisualsTab:AddLeftGroupbox("Player ESP")
 VisualsLeft:AddToggle("PlayerESP", {
     Text = "Player ESP",
@@ -899,6 +1090,19 @@ ESPSettings:AddSlider("ESPDistanceSizeRatio", {
 })
 
 Library:OnUnload(function()
+    Lighting.Brightness = OriginalLighting.Brightness
+    Lighting.Ambient = OriginalLighting.Ambient
+    Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+    Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
+    Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
+    Lighting.FogStart = OriginalLighting.FogStart
+    Lighting.FogEnd = OriginalLighting.FogEnd
+    Lighting.FogColor = OriginalLighting.FogColor
+
+    if CustomSky and CustomSky.Parent then
+        CustomSky:Destroy()
+        CustomSky = nil
+    end
     PlayerAddedConnection:Disconnect()
     PlayerRemovingConnection:Disconnect()
     FishAddedConnection:Disconnect()
