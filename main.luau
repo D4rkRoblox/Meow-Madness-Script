@@ -526,23 +526,6 @@ task.spawn(function()
     end
 end)
 
-ESPLibrary:SetRainbow(false)
-ESPLibrary:SetShowDistance(true)
-ESPLibrary:SetFillTransparency(0.75)
-ESPLibrary:SetOutlineTransparency(0)
-ESPLibrary:SetTextTransparency(0)
-ESPLibrary:SetTextOutlineTransparency(0)
-ESPLibrary:SetRenderLimit(240)
-ESPLibrary:SetFadeTime(0.25)
-ESPLibrary:SetTextSize(20)
-ESPLibrary:SetFont(Enum.Font.Highway)
-ESPLibrary:SetTracers(false)
-ESPLibrary:SetTracerSize(0.75)
-ESPLibrary:SetTracerOrigin("Bottom")
-ESPLibrary:SetArrows(false)
-ESPLibrary:SetArrowRadius(250)
-ESPLibrary:SetDistanceSizeRatio(0.8)
-
 local MainLeft = MainTab:AddLeftGroupbox("Main")
 MainLeft:AddLabel("Meow Madness")
 MainLeft:AddLabel("Player: " .. LocalPlayer.Name)
@@ -899,83 +882,87 @@ RageRight:AddSlider("RageUpdateInterval", {
     end
 })
 
-local LightingLeft = VisualsTab:AddLeftGroupbox("Lighting")
+local VisualsBuildSuccess, VisualsBuildError = pcall(function()
+    local LightingLeft = VisualsTab:AddGroupbox({ Side = 1, Name = "Lighting" })
 
-LightingLeft:AddToggle("FullBright", {
-    Text = "FullBright",
-    Default = false,
-    Callback = function(Value)
-        FullBrightEnabled = Value
-        ApplyFullBright()
-    end
-})
+    LightingLeft:AddToggle("FullBright", {
+        Text = "FullBright",
+        Default = false,
+        Callback = function(Value)
+            FullBrightEnabled = Value
+            ApplyFullBright()
+        end
+    })
 
-LightingLeft:AddSlider("FullBrightIntensity", {
-    Text = "FullBright Intensity",
-    Default = 10,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        FullBrightIntensity = Value
-        ApplyFullBright()
-    end
-})
+    LightingLeft:AddSlider("FullBrightIntensity", {
+        Text = "FullBright Intensity",
+        Default = 10,
+        Min = 0,
+        Max = 10,
+        Rounding = 1,
+        Callback = function(Value)
+            FullBrightIntensity = Value
+            ApplyFullBright()
+        end
+    })
 
-LightingLeft:AddDropdown("SkyChanger", {
-    Text = "Sky Changer",
-    Values = {"Default", "Purple Nebula", "Dusty Clouds", "Night Sky", "Pink Daylight", "Sunset"},
-    Default = 1,
-    Callback = function(Value)
-        SetSkyPreset(Value)
-    end
-})
+    LightingLeft:AddDropdown("SkyChanger", {
+        Text = "Sky Changer",
+        Values = {"Default", "Purple Nebula", "Dusty Clouds", "Night Sky", "Pink Daylight", "Sunset"},
+        Default = 1,
+        Callback = function(Value)
+            SetSkyPreset(Value)
+        end
+    })
 
-local FogGroup = VisualsTab:AddRightGroupbox("Fog")
+    local FogGroup = VisualsTab:AddGroupbox({ Side = 2, Name = "Fog" })
 
-FogGroup:AddToggle("FogEnabled", {
-    Text = "Fog Enabled",
-    Default = false,
-    Callback = function(Value)
-        FogEnabled = Value
-        ApplyFog()
-    end
-})
+    FogGroup:AddToggle("FogEnabled", {
+        Text = "Fog Enabled",
+        Default = false,
+        Callback = function(Value)
+            FogEnabled = Value
+            ApplyFog()
+        end
+    })
 
-FogGroup:AddSlider("FogStart", {
-    Text = "Fog Start",
-    Default = math.clamp(FogStartValue, 0, 5000),
-    Min = 0,
-    Max = 5000,
-    Rounding = 0,
-    Callback = function(Value)
-        FogStartValue = Value
-        ApplyFog()
-    end
-})
+    FogGroup:AddSlider("FogStart", {
+        Text = "Fog Start",
+        Default = math.clamp(FogStartValue, 0, 5000),
+        Min = 0,
+        Max = 5000,
+        Rounding = 0,
+        Callback = function(Value)
+            FogStartValue = Value
+            ApplyFog()
+        end
+    })
 
-FogGroup:AddSlider("FogEnd", {
-    Text = "Fog End",
-    Default = math.clamp(FogEndValue, 10, 10000),
-    Min = 10,
-    Max = 10000,
-    Rounding = 0,
-    Callback = function(Value)
-        FogEndValue = Value
-        ApplyFog()
-    end
-})
+    FogGroup:AddSlider("FogEnd", {
+        Text = "Fog End",
+        Default = math.clamp(FogEndValue, 10, 10000),
+        Min = 10,
+        Max = 10000,
+        Rounding = 0,
+        Callback = function(Value)
+            FogEndValue = Value
+            ApplyFog()
+        end
+    })
 
-FogGroup:AddColorPicker("FogColor", {
-    Default = FogColorValue,
-    Title = "Fog Color",
-    Callback = function(Value)
-        FogColorValue = Value
-        ApplyFog()
-    end
-})
+    FogGroup:AddColorPicker("FogColor", {
+        Default = FogColorValue,
+        Title = "Fog Color",
+        Callback = function(Value)
+            FogColorValue = Value
+            ApplyFog()
+        end
+    })
+end)
 
-local PlayerESPGroup = ESPTab:AddLeftGroupbox("Player ESP")
+-- ESP is intentionally built after the visual controls and protected from visual errors.
+local PlayerESPGroup = ESPTab:AddGroupbox({ Side = 1, Name = "Player ESP" })
+PlayerESPGroup:AddLabel("ESP Ready")
 PlayerESPGroup:AddToggle("PlayerESP", {
     Text = "Player ESP",
     Default = false,
@@ -1015,7 +1002,8 @@ PlayerESPGroup:AddToggle("PlayerESPArrows", {
     end
 })
 
-local FishLeft = ESPTab:AddLeftGroupbox("Fish ESP")
+local FishLeft = ESPTab:AddGroupbox({ Side = 1, Name = "Fish ESP" })
+FishLeft:AddLabel("workspace.FishPickups (Sounds ignored)")
 FishLeft:AddToggle("FishESP", {
     Text = "Fish ESP",
     Default = false,
@@ -1055,13 +1043,20 @@ FishLeft:AddToggle("FishESPArrows", {
     end
 })
 
-local ESPSettings = ESPTab:AddRightGroupbox("ESP Settings")
-
+local ESPSettings = ESPTab:AddGroupbox({ Side = 2, Name = "ESP Settings" })
 ESPSettings:AddToggle("ESPRainbow", {
     Text = "Rainbow Effect",
     Default = false,
     Callback = function(Value)
         ESPLibrary:SetRainbow(Value)
+    end
+})
+
+ESPSettings:AddToggle("ESPMatchColors", {
+    Text = "Match Outline Colors",
+    Default = true,
+    Callback = function(Value)
+        ESPLibrary:SetMatchColors(Value)
     end
 })
 
@@ -1144,22 +1139,12 @@ ESPSettings:AddSlider("ESPTextSize", {
 
 ESPSettings:AddDropdown("ESPTextFont", {
     Text = "Text Font",
-    Values = {
-        "Roboto",
-        "RobotoCondensed",
-        "Highway",
-        "Gotham",
-        "GothamBold",
-        "SourceSans",
-        "SourceSansBold",
-        "Code"
-    },
+    Values = {"Roboto", "RobotoCondensed", "Highway", "Gotham", "GothamBold", "SourceSans", "SourceSansBold", "Code"},
     Default = 1,
     Callback = function(Value)
         local Success, Font = pcall(function()
             return Enum.Font[Value]
         end)
-
         if Success and Font then
             ESPLibrary:SetFont(Font)
         end
@@ -1208,13 +1193,12 @@ ESPSettings:AddSlider("ESPDistanceSizeRatio", {
     end
 })
 
-local ESPActions = ESPTab:AddRightGroupbox("Actions")
-
+local ESPActions = ESPTab:AddGroupbox({ Side = 2, Name = "Actions" })
 ESPActions:AddButton({
     Text = "Refresh Player ESP",
     Func = function()
-        for _, Player in ipairs(Players:GetPlayers()) do
-            if Player ~= LocalPlayer then
+        if PlayerESPEnabled then
+            for _, Player in ipairs(Players:GetPlayers()) do
                 AddPlayerESP(Player)
             end
         end
@@ -1224,9 +1208,36 @@ ESPActions:AddButton({
 ESPActions:AddButton({
     Text = "Refresh Fish ESP",
     Func = function()
-        ScanForFish()
+        if FishESPEnabled then
+            ScanForFish()
+        end
     end
 })
+
+-- Apply safe defaults only after the ESP controls exist.
+pcall(function()
+    ESPLibrary:SetRainbow(false)
+    ESPLibrary:SetMatchColors(true)
+    ESPLibrary:SetShowDistance(true)
+    ESPLibrary:SetFillTransparency(0.75)
+    ESPLibrary:SetOutlineTransparency(0)
+    ESPLibrary:SetTextTransparency(0)
+    ESPLibrary:SetTextOutlineTransparency(0)
+    ESPLibrary:SetRenderLimit(240)
+    ESPLibrary:SetFadeTime(0.25)
+    ESPLibrary:SetTextSize(20)
+    ESPLibrary:SetFont(Enum.Font.Highway)
+    ESPLibrary:SetTracers(false)
+    ESPLibrary:SetTracerSize(0.75)
+    ESPLibrary:SetTracerOrigin("Bottom")
+    ESPLibrary:SetArrows(false)
+    ESPLibrary:SetArrowRadius(250)
+    ESPLibrary:SetDistanceSizeRatio(0.8)
+end)
+
+if not VisualsBuildSuccess then
+    warn("Meow Madness Visuals failed to build: " .. tostring(VisualsBuildError))
+end
 
 Library:OnUnload(function()
     if FullBrightConnection then
