@@ -913,6 +913,9 @@ MainServer:AddButton({
 local AutoCollectFishEnabled = false
 local AutoCollectFishDelay = 0.15
 local AutoCollectFishRunning = false
+local AutoCollectFishRange = 1000
+local AutoCollectFishOnlyVisible = false
+local AutoCollectFishTeleport = true
 
 local function GetObjectCFrame(Object)
     if not Object then
@@ -974,24 +977,39 @@ local function TryCollectObject(Object)
         return
     end
 
-    pcall(function()
-        Character:PivotTo(TargetCFrame)
-    end)
+    local Distance = (Root.Position - TargetCFrame.Position).Magnitude
+    if Distance > AutoCollectFishRange then
+        return
+    end
+
+    if AutoCollectFishOnlyVisible then
+        local Params = RaycastParams.new()
+        Params.FilterType = Enum.RaycastFilterType.Exclude
+        Params.FilterDescendantsInstances = {Character}
+
+        local Direction = TargetCFrame.Position - Root.Position
+        local Result = Workspace:Raycast(Root.Position, Direction, Params)
+
+        if Result and not Result.Instance:IsDescendantOf(Object) then
+            return
+        end
+    end
+
+    if AutoCollectFishTeleport then
+        pcall(function()
+            Character:PivotTo(TargetCFrame)
+        end)
+    end
 
     task.wait(0.03)
 
     local Prompt = Object:FindFirstChildWhichIsA("ProximityPrompt", true)
     if Prompt then
-        local Fired = false
-
         if typeof(fireproximityprompt) == "function" then
             pcall(function()
                 fireproximityprompt(Prompt)
-                Fired = true
             end)
-        end
-
-        if not Fired then
+        else
             pcall(function()
                 Prompt:InputHoldBegin()
                 task.wait(math.max(Prompt.HoldDuration, 0.03))
@@ -1053,15 +1071,7 @@ local function AutoCollectFishLoop()
     AutoCollectFishRunning = false
 end
 
-local AutoLeft = AutoTab:AddLeftGroupbox("Auto")
-
-AutoLeft:AddToggle("AutoFarm", {
-    Text = "Auto Farm",
-    Default = false,
-    Callback = function(Value)
-        print("Auto Farm:", Value)
-    end
-})
+local AutoLeft = AutoTab:AddLeftGroupbox("Fish Collect")
 
 AutoLeft:AddToggle("AutoCollectFish", {
     Text = "Auto Collect Fish",
@@ -1087,37 +1097,45 @@ AutoLeft:AddButton({
     end
 })
 
-local AutoRight = AutoTab:AddRightGroupbox("Settings")
-AutoRight:AddDropdown("AutoMode", {
-    Values = {"Nearest", "Best", "Random"},
-    Default = 1,
-    Text = "Mode",
+AutoLeft:AddToggle("FishCollectTeleport", {
+    Text = "Teleport To Fish",
+    Default = true,
     Callback = function(Value)
-        print("Auto Mode:", Value)
+        AutoCollectFishTeleport = Value
     end
 })
 
-AutoRight:AddSlider("AutoDelay", {
-    Text = "Delay",
-    Default = 1,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-    Suffix = "s",
-    Callback = function(Value)
-        print("Auto Delay:", Value)
-    end
-})
+local AutoRight = AutoTab:AddRightGroupbox("Fish Settings")
 
 AutoRight:AddSlider("FishCollectDelay", {
-    Text = "Fish Collect Delay",
+    Text = "Collect Delay",
     Default = 0.15,
     Min = 0.05,
-    Max = 1,
+    Max = 2,
     Rounding = 2,
     Suffix = "s",
     Callback = function(Value)
         AutoCollectFishDelay = Value
+    end
+})
+
+AutoRight:AddSlider("FishCollectRange", {
+    Text = "Collect Range",
+    Default = 1000,
+    Min = 25,
+    Max = 5000,
+    Rounding = 0,
+    Suffix = " studs",
+    Callback = function(Value)
+        AutoCollectFishRange = Value
+    end
+})
+
+AutoRight:AddToggle("FishCollectVisible", {
+    Text = "Only Visible Fish",
+    Default = false,
+    Callback = function(Value)
+        AutoCollectFishOnlyVisible = Value
     end
 })
 
