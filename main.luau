@@ -916,6 +916,12 @@ local AutoCollectFishRunning = false
 local AutoCollectFishRange = 1000
 local AutoCollectFishOnlyVisible = false
 local AutoCollectFishTeleport = true
+local AutoCollectFishNearestFirst = true
+local AutoCollectFishMaxPerCycle = 25
+local AutoCollectFishRescanDelay = 0.15
+local AutoCollectFishReturnToStart = false
+local AutoCollectFishInteractionOnly = false
+local AutoCollectFishOffset = 2
 
 local function GetObjectCFrame(Object)
     if not Object then
@@ -964,22 +970,22 @@ end
 
 local function TryCollectObject(Object)
     if not Object or not Object.Parent or Object:IsA("Sound") then
-        return
+        return false
     end
 
     local Character, Root = GetCharacterRootPart()
     if not Character or not Root then
-        return
+        return false
     end
 
     local TargetCFrame = GetObjectCFrame(Object)
     if not TargetCFrame then
-        return
+        return false
     end
 
     local Distance = (Root.Position - TargetCFrame.Position).Magnitude
     if Distance > AutoCollectFishRange then
-        return
+        return false
     end
 
     if AutoCollectFishOnlyVisible then
@@ -991,39 +997,59 @@ local function TryCollectObject(Object)
         local Result = Workspace:Raycast(Root.Position, Direction, Params)
 
         if Result and not Result.Instance:IsDescendantOf(Object) then
-            return
+            return false
         end
     end
 
-    if AutoCollectFishTeleport then
-        pcall(function()
-            Character:PivotTo(TargetCFrame)
-        end)
+    local Prompt = Object:FindFirstChildWhichIsA("ProximityPrompt", true)
+    local ClickDetector = Object:FindFirstChildWhichIsA("ClickDetector", true)
+
+    if AutoCollectFishInteractionOnly and not Prompt and not ClickDetector then
+        return false
     end
 
-    task.wait(0.03)
+    if AutoCollectFishTeleport then
+        local TeleportCFrame = TargetCFrame * CFrame.new(0, AutoCollectFishOffset, 0)
 
-    local Prompt = Object:FindFirstChildWhichIsA("ProximityPrompt", true)
+        pcall(function()
+            Character:PivotTo(TeleportCFrame)
+        end)
+
+        task.wait(0.03)
+    end
+
+    local Collected = false
+
     if Prompt then
         if typeof(fireproximityprompt) == "function" then
-            pcall(function()
+            local Success = pcall(function()
                 fireproximityprompt(Prompt)
             end)
+            Collected = Success
         else
-            pcall(function()
+            local Success = pcall(function()
                 Prompt:InputHoldBegin()
                 task.wait(math.max(Prompt.HoldDuration, 0.03))
                 Prompt:InputHoldEnd()
             end)
+            Collected = Success
         end
     end
 
-    local ClickDetector = Object:FindFirstChildWhichIsA("ClickDetector", true)
     if ClickDetector and typeof(fireclickdetector) == "function" then
-        pcall(function()
+        local Success = pcall(function()
             fireclickdetector(ClickDetector)
         end)
+        Collected = Collected or Success
     end
+
+    -- If the pickup has no explicit interaction object, the movement itself
+    -- is still performed when teleport mode is enabled.
+    if not Prompt and not ClickDetector and AutoCollectFishTeleport then
+        Collected = true
+    end
+
+    return Collected
 end
 
 local function GetFishCollectables()
@@ -1034,16 +1060,44 @@ local function GetFishCollectables()
 
     local Results = {}
 
-    for _, Object in ipairs(Folder:GetDescendants()) do
-        if not Object:IsA("Sound")
+    -- Pickups are treated as the direct children of FishPickups.
+    -- Sounds and other non-collectable objects are ignored.
+    for _, Object in ipairs(Folder:GetChildren()) do
+        if Object.Parent
+            and not Object:IsA("Sound")
             and (Object:IsA("Model") or Object:IsA("BasePart"))
-            and Object.Parent
         then
             table.insert(Results, Object)
         end
     end
 
     return Results
+end
+
+local function SortFishByDistance(Objects, Origin)
+    table.sort(Objects, function(A, B)
+        local ACFrame = GetObjectCFrame(A)
+        local BCFrame = GetObjectCFrame(B)
+
+        if not ACFrame then
+            return false
+        end
+
+        if not BCFrame then
+            return true
+        end
+
+        local ADistance = (ACFrame.Position - Origin).Magnitude
+        local BDistance = (BCFrame.Position - Origin).Magnitude
+
+        if AutoCollectFishNearestFirst then
+            return ADistance < BDistance
+        end
+
+        return ADistance > BDistance
+    end)
+
+    return Objects
 end
 
 local function AutoCollectFishLoop()
@@ -1054,18 +1108,43 @@ local function AutoCollectFishLoop()
     AutoCollectFishRunning = true
 
     while AutoCollectFishEnabled do
-        for _, Object in ipairs(GetFishCollectables()) do
-            if not AutoCollectFishEnabled then
-                break
+        local Character, Root = GetCharacterRootPart()
+        local StartCFrame = Root and Root.CFrame or nil
+        local Objects = GetFishCollectables()
+
+        if Root then
+            Objects = SortFishByDistance(Objects, Root.Position)
+
+            local Processed = 0
+
+            for _, Object in ipairs(Objects) do
+                if not AutoCollectFishEnabled then
+                    break
+                end
+
+                if Processed >= AutoCollectFishMaxPerCycle then
+                    break
+                end
+
+                if Object and Object.Parent then
+                    if TryCollectObject(Object) then
+                        Processed += 1
+                        task.wait(AutoCollectFishDelay)
+                    end
+                end
             end
 
-            if Object and Object.Parent and not Object:IsA("Sound") then
-                TryCollectObject(Object)
-                task.wait(AutoCollectFishDelay)
+            if AutoCollectFishReturnToStart and StartCFrame and AutoCollectFishTeleport then
+                local CurrentCharacter = LocalPlayer.Character
+                if CurrentCharacter and CurrentCharacter.Parent then
+                    pcall(function()
+                        CurrentCharacter:PivotTo(StartCFrame)
+                    end)
+                end
             end
         end
 
-        task.wait(0.05)
+        task.wait(AutoCollectFishRescanDelay)
     end
 
     AutoCollectFishRunning = false
@@ -1088,10 +1167,32 @@ AutoLeft:AddToggle("AutoCollectFish", {
 AutoLeft:AddButton({
     Text = "Collect Fish Once",
     Func = function()
+        if AutoCollectFishRunning then
+            return
+        end
+
         task.spawn(function()
-            for _, Object in ipairs(GetFishCollectables()) do
-                TryCollectObject(Object)
-                task.wait(AutoCollectFishDelay)
+            local Character, Root = GetCharacterRootPart()
+            if not Root then
+                return
+            end
+
+            local Objects = SortFishByDistance(
+                GetFishCollectables(),
+                Root.Position
+            )
+
+            local Processed = 0
+
+            for _, Object in ipairs(Objects) do
+                if Processed >= AutoCollectFishMaxPerCycle then
+                    break
+                end
+
+                if Object and Object.Parent and TryCollectObject(Object) then
+                    Processed += 1
+                    task.wait(AutoCollectFishDelay)
+                end
             end
         end)
     end
@@ -1102,6 +1203,30 @@ AutoLeft:AddToggle("FishCollectTeleport", {
     Default = true,
     Callback = function(Value)
         AutoCollectFishTeleport = Value
+    end
+})
+
+AutoLeft:AddToggle("FishCollectNearestFirst", {
+    Text = "Nearest Fish First",
+    Default = true,
+    Callback = function(Value)
+        AutoCollectFishNearestFirst = Value
+    end
+})
+
+AutoLeft:AddToggle("FishCollectVisible", {
+    Text = "Only Visible Fish",
+    Default = false,
+    Callback = function(Value)
+        AutoCollectFishOnlyVisible = Value
+    end
+})
+
+AutoLeft:AddToggle("FishCollectInteractionOnly", {
+    Text = "Interaction Only",
+    Default = false,
+    Callback = function(Value)
+        AutoCollectFishInteractionOnly = Value
     end
 })
 
@@ -1131,11 +1256,46 @@ AutoRight:AddSlider("FishCollectRange", {
     end
 })
 
-AutoRight:AddToggle("FishCollectVisible", {
-    Text = "Only Visible Fish",
+AutoRight:AddSlider("FishCollectMaxPerCycle", {
+    Text = "Max Fish Per Cycle",
+    Default = 25,
+    Min = 1,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        AutoCollectFishMaxPerCycle = Value
+    end
+})
+
+AutoRight:AddSlider("FishCollectRescanDelay", {
+    Text = "Rescan Delay",
+    Default = 0.15,
+    Min = 0.05,
+    Max = 5,
+    Rounding = 2,
+    Suffix = "s",
+    Callback = function(Value)
+        AutoCollectFishRescanDelay = Value
+    end
+})
+
+AutoRight:AddSlider("FishCollectOffset", {
+    Text = "Teleport Height",
+    Default = 2,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+    Suffix = " studs",
+    Callback = function(Value)
+        AutoCollectFishOffset = Value
+    end
+})
+
+AutoRight:AddToggle("FishReturnToStart", {
+    Text = "Return To Start",
     Default = false,
     Callback = function(Value)
-        AutoCollectFishOnlyVisible = Value
+        AutoCollectFishReturnToStart = Value
     end
 })
 
