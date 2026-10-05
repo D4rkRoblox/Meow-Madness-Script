@@ -322,7 +322,151 @@ MainRight:AddToggle("MainEnabled", {
     end
 })
 
+local AutoCollectFishEnabled = false
+local AutoCollectFishDelay = 0.15
+local AutoCollectFishRunning = false
+
+local function GetObjectCFrame(Object)
+    if not Object then
+        return nil
+    end
+
+    if Object:IsA("BasePart") then
+        return Object.CFrame
+    end
+
+    if Object:IsA("Model") then
+        local Success, CFrameValue = pcall(function()
+            return Object:GetPivot()
+        end)
+
+        if Success then
+            return CFrameValue
+        end
+
+        local PrimaryPart = Object.PrimaryPart or Object:FindFirstChildWhichIsA("BasePart", true)
+        if PrimaryPart then
+            return PrimaryPart.CFrame
+        end
+    end
+
+    local Part = Object:FindFirstChildWhichIsA("BasePart", true)
+    if Part then
+        return Part.CFrame
+    end
+
+    return nil
+end
+
+local function GetCharacterRootPart()
+    local Character = LocalPlayer.Character
+    if not Character then
+        return nil, nil
+    end
+
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+        or Character.PrimaryPart
+        or Character:FindFirstChildWhichIsA("BasePart")
+
+    return Character, Root
+end
+
+local function TryCollectObject(Object)
+    if not Object or not Object.Parent or Object:IsA("Sound") then
+        return
+    end
+
+    local Character, Root = GetCharacterRootPart()
+    if not Character or not Root then
+        return
+    end
+
+    local TargetCFrame = GetObjectCFrame(Object)
+    if not TargetCFrame then
+        return
+    end
+
+    pcall(function()
+        Character:PivotTo(TargetCFrame)
+    end)
+
+    task.wait(0.03)
+
+    local Prompt = Object:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if Prompt then
+        local Fired = false
+
+        if typeof(fireproximityprompt) == "function" then
+            pcall(function()
+                fireproximityprompt(Prompt)
+                Fired = true
+            end)
+        end
+
+        if not Fired then
+            pcall(function()
+                Prompt:InputHoldBegin()
+                task.wait(math.max(Prompt.HoldDuration, 0.03))
+                Prompt:InputHoldEnd()
+            end)
+        end
+    end
+
+    local ClickDetector = Object:FindFirstChildWhichIsA("ClickDetector", true)
+    if ClickDetector and typeof(fireclickdetector) == "function" then
+        pcall(function()
+            fireclickdetector(ClickDetector)
+        end)
+    end
+end
+
+local function GetFishCollectables()
+    local Folder = Workspace:FindFirstChild("FishPickups")
+    if not Folder then
+        return {}
+    end
+
+    local Results = {}
+
+    for _, Object in ipairs(Folder:GetDescendants()) do
+        if not Object:IsA("Sound")
+            and (Object:IsA("Model") or Object:IsA("BasePart"))
+            and Object.Parent
+        then
+            table.insert(Results, Object)
+        end
+    end
+
+    return Results
+end
+
+local function AutoCollectFishLoop()
+    if AutoCollectFishRunning then
+        return
+    end
+
+    AutoCollectFishRunning = true
+
+    while AutoCollectFishEnabled do
+        for _, Object in ipairs(GetFishCollectables()) do
+            if not AutoCollectFishEnabled then
+                break
+            end
+
+            if Object and Object.Parent and not Object:IsA("Sound") then
+                TryCollectObject(Object)
+                task.wait(AutoCollectFishDelay)
+            end
+        end
+
+        task.wait(0.05)
+    end
+
+    AutoCollectFishRunning = false
+end
+
 local AutoLeft = AutoTab:AddLeftGroupbox("Auto")
+
 AutoLeft:AddToggle("AutoFarm", {
     Text = "Auto Farm",
     Default = false,
@@ -331,11 +475,27 @@ AutoLeft:AddToggle("AutoFarm", {
     end
 })
 
-AutoLeft:AddToggle("AutoCollect", {
-    Text = "Auto Collect",
+AutoLeft:AddToggle("AutoCollectFish", {
+    Text = "Auto Collect Fish",
     Default = false,
     Callback = function(Value)
-        print("Auto Collect:", Value)
+        AutoCollectFishEnabled = Value
+
+        if Value then
+            task.spawn(AutoCollectFishLoop)
+        end
+    end
+})
+
+AutoLeft:AddButton({
+    Text = "Collect Fish Once",
+    Func = function()
+        task.spawn(function()
+            for _, Object in ipairs(GetFishCollectables()) do
+                TryCollectObject(Object)
+                task.wait(AutoCollectFishDelay)
+            end
+        end)
     end
 })
 
@@ -361,9 +521,22 @@ AutoRight:AddSlider("AutoDelay", {
     end
 })
 
-local RageTeleportDelay = 0.35
+AutoRight:AddSlider("FishCollectDelay", {
+    Text = "Fish Collect Delay",
+    Default = 0.15,
+    Min = 0.05,
+    Max = 1,
+    Rounding = 2,
+    Suffix = "s",
+    Callback = function(Value)
+        AutoCollectFishDelay = Value
+    end
+})
+
 local RageEnabled = false
 local RageRunning = false
+local RageStayTime = 10
+local RageUpdateInterval = 0.03
 
 local function GetCharacterRoot(Character)
     if not Character then
@@ -375,29 +548,32 @@ local function GetCharacterRoot(Character)
         or Character:FindFirstChildWhichIsA("BasePart")
 end
 
-local function TeleportToPlayer(TargetPlayer)
-    local Character = LocalPlayer.Character
-    local TargetCharacter = TargetPlayer.Character
-    local Root = GetCharacterRoot(Character)
-    local TargetRoot = GetCharacterRoot(TargetCharacter)
+local function FollowPlayerForTime(TargetPlayer, Duration)
+    local StartTime = os.clock()
 
-    if not Root or not TargetRoot then
-        return false
+    while RageEnabled and os.clock() - StartTime < Duration do
+        local Character = LocalPlayer.Character
+        local TargetCharacter = TargetPlayer.Character
+
+        local Root = GetCharacterRoot(Character)
+        local TargetRoot = GetCharacterRoot(TargetCharacter)
+
+        if Root and TargetRoot and Character and Character.Parent and TargetCharacter and TargetCharacter.Parent then
+            local TargetCFrame = TargetRoot.CFrame
+
+            pcall(function()
+                Character:PivotTo(TargetCFrame)
+            end)
+
+            Root = GetCharacterRoot(LocalPlayer.Character)
+
+            if Root then
+                Root.CFrame = TargetCFrame
+            end
+        end
+
+        task.wait(RageUpdateInterval)
     end
-
-    local TargetCFrame = TargetRoot.CFrame * CFrame.new(0, 0, 2)
-
-    pcall(function()
-        Character:PivotTo(TargetCFrame)
-    end)
-
-    Root = GetCharacterRoot(LocalPlayer.Character)
-
-    if Root then
-        Root.CFrame = TargetCFrame
-    end
-
-    return true
 end
 
 local function RageTeleportLoop()
@@ -408,16 +584,13 @@ local function RageTeleportLoop()
     RageRunning = true
 
     while RageEnabled do
-        local PlayersList = Players:GetPlayers()
-
-        for _, Player in ipairs(PlayersList) do
+        for _, Player in ipairs(Players:GetPlayers()) do
             if not RageEnabled then
                 break
             end
 
-            if Player ~= LocalPlayer then
-                TeleportToPlayer(Player)
-                task.wait(RageTeleportDelay)
+            if Player ~= LocalPlayer and Player.Parent == Players then
+                FollowPlayerForTime(Player, RageStayTime)
             end
         end
 
@@ -430,6 +603,7 @@ local function RageTeleportLoop()
 end
 
 local RageLeft = RageTab:AddLeftGroupbox("Rage")
+
 RageLeft:AddToggle("RageEnabled", {
     Text = "Rage Enabled",
     Default = false,
@@ -443,33 +617,51 @@ RageLeft:AddToggle("RageEnabled", {
 })
 
 RageLeft:AddButton({
-    Text = "Teleport To All Players",
+    Text = "Start Rage Once",
     Func = function()
         if RageRunning then
             return
         end
 
         task.spawn(function()
+            RageRunning = true
+
             for _, Player in ipairs(Players:GetPlayers()) do
-                if Player ~= LocalPlayer then
-                    TeleportToPlayer(Player)
-                    task.wait(RageTeleportDelay)
+                if not RageEnabled and Player ~= LocalPlayer and Player.Parent == Players then
+                    FollowPlayerForTime(Player, RageStayTime)
+                elseif RageEnabled and Player ~= LocalPlayer and Player.Parent == Players then
+                    FollowPlayerForTime(Player, RageStayTime)
                 end
             end
+
+            RageRunning = false
         end)
     end
 })
 
 local RageRight = RageTab:AddRightGroupbox("Teleport")
-RageRight:AddSlider("TeleportDelay", {
-    Text = "Teleport Delay",
-    Default = 0.35,
-    Min = 0,
-    Max = 2,
+
+RageRight:AddSlider("RageStayTime", {
+    Text = "Time On Player",
+    Default = 10,
+    Min = 1,
+    Max = 30,
+    Rounding = 0,
+    Suffix = "s",
+    Callback = function(Value)
+        RageStayTime = Value
+    end
+})
+
+RageRight:AddSlider("RageUpdateInterval", {
+    Text = "Teleport Speed",
+    Default = 0.03,
+    Min = 0.01,
+    Max = 0.2,
     Rounding = 2,
     Suffix = "s",
     Callback = function(Value)
-        RageTeleportDelay = Value
+        RageUpdateInterval = Value
     end
 })
 
