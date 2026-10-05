@@ -35,50 +35,6 @@ local CustomSky = nil
 local ActiveSkyPreset = "Default"
 local SavedSkies = {}
 
-local ClockTimeValue = Lighting.ClockTime
-local BrightnessValue = Lighting.Brightness
-local ExposureValue = Lighting.ExposureCompensation
-local EnvironmentDiffuseValue = Lighting.EnvironmentDiffuseScale
-local EnvironmentSpecularValue = Lighting.EnvironmentSpecularScale
-local AmbientValue = Lighting.Ambient
-local OutdoorAmbientValue = Lighting.OutdoorAmbient
-
-local SkyStars = 3000
-local SkySunSize = 21
-local SkyMoonSize = 11
-local SkyRotation = 0
-local SkyCelestialBodies = true
-local SkySpinEnabled = false
-local SkySpinSpeed = 10
-
-local ColorCorrectionEnabled = false
-local ColorCorrectionBrightness = 0
-local ColorCorrectionContrast = 0
-local ColorCorrectionSaturation = 0
-local ColorCorrectionTint = Color3.fromRGB(255, 255, 255)
-
-local BloomEnabled = false
-local BloomIntensity = 0.8
-local BloomSize = 24
-local BloomThreshold = 1
-
-local SunRaysEnabled = false
-local SunRaysIntensity = 0.12
-local SunRaysSpread = 1
-
-local AtmosphereEnabled = false
-local AtmosphereDensity = 0.2
-local AtmosphereOffset = 0
-local AtmosphereColor = Color3.fromRGB(199, 199, 199)
-local AtmosphereDecay = Color3.fromRGB(106, 112, 125)
-local AtmosphereGlare = 0
-local AtmosphereHaze = 0
-
-local ColorCorrectionEffect = nil
-local BloomEffect = nil
-local SunRaysEffect = nil
-local AtmosphereEffect = nil
-
 for _, Child in ipairs(Lighting:GetChildren()) do
     if Child:IsA("Sky") then
         table.insert(SavedSkies, Child:Clone())
@@ -87,84 +43,46 @@ end
 
 local SkyPresets = {
     ["Purple Nebula"] = {
-        SkyboxBk = "rbxassetid://159454299", SkyboxDn = "rbxassetid://159454296",
-        SkyboxFt = "rbxassetid://159454293", SkyboxLf = "rbxassetid://159454286",
-        SkyboxRt = "rbxassetid://159454300", SkyboxUp = "rbxassetid://159454288"
+        SkyboxBk = "rbxassetid://159454299",
+        SkyboxDn = "rbxassetid://159454296",
+        SkyboxFt = "rbxassetid://159454293",
+        SkyboxLf = "rbxassetid://159454286",
+        SkyboxRt = "rbxassetid://159454300",
+        SkyboxUp = "rbxassetid://159454288"
     },
     ["Dusty Clouds"] = {
-        SkyboxBk = "rbxassetid://252760981", SkyboxDn = "rbxassetid://252763035",
-        SkyboxFt = "rbxassetid://252761439", SkyboxLf = "rbxassetid://252760980",
-        SkyboxRt = "rbxassetid://252760986", SkyboxUp = "rbxassetid://252762652"
+        SkyboxBk = "rbxassetid://252760981",
+        SkyboxDn = "rbxassetid://252763035",
+        SkyboxFt = "rbxassetid://252761439",
+        SkyboxLf = "rbxassetid://252760980",
+        SkyboxRt = "rbxassetid://252760986",
+        SkyboxUp = "rbxassetid://252762652"
     },
     ["Night Sky"] = {
-        SkyboxBk = "rbxassetid://12064107", SkyboxDn = "rbxassetid://12064152",
-        SkyboxFt = "rbxassetid://12064121", SkyboxLf = "rbxassetid://12063984",
-        SkyboxRt = "rbxassetid://12064115", SkyboxUp = "rbxassetid://12064131"
+        SkyboxBk = "rbxassetid://12064107",
+        SkyboxDn = "rbxassetid://12064152",
+        SkyboxFt = "rbxassetid://12064121",
+        SkyboxLf = "rbxassetid://12063984",
+        SkyboxRt = "rbxassetid://12064115",
+        SkyboxUp = "rbxassetid://12064131"
     },
     ["Pink Daylight"] = {
-        SkyboxBk = "rbxassetid://271042516", SkyboxDn = "rbxassetid://271077243",
-        SkyboxFt = "rbxassetid://271042556", SkyboxLf = "rbxassetid://271042310",
-        SkyboxRt = "rbxassetid://271042467", SkyboxUp = "rbxassetid://271077958"
+        SkyboxBk = "rbxassetid://271042516",
+        SkyboxDn = "rbxassetid://271077243",
+        SkyboxFt = "rbxassetid://271042556",
+        SkyboxLf = "rbxassetid://271042310",
+        SkyboxRt = "rbxassetid://271042467",
+        SkyboxUp = "rbxassetid://271077958"
     },
     ["Sunset"] = {
-        SkyboxBk = "rbxassetid://323494035", SkyboxDn = "rbxassetid://323494368",
-        SkyboxFt = "rbxassetid://323494130", SkyboxLf = "rbxassetid://323494252",
-        SkyboxRt = "rbxassetid://323494067", SkyboxUp = "rbxassetid://323493360"
-    },
-
-    -- 10 additional sky presets.
-    ["Redshift"] = {
-        SkyboxBk = "rbxassetid://401664839", SkyboxDn = "rbxassetid://401664862",
-        SkyboxFt = "rbxassetid://401664960", SkyboxLf = "rbxassetid://401664881",
-        SkyboxRt = "rbxassetid://401664901", SkyboxUp = "rbxassetid://401664936"
-    },
-    ["Blue Classic"] = {
-        SkyboxBk = "rbxassetid://135483466", SkyboxDn = "rbxassetid://135483484",
-        SkyboxFt = "rbxassetid://135483461", SkyboxLf = "rbxassetid://135483495",
-        SkyboxRt = "rbxassetid://135483499", SkyboxUp = "rbxassetid://135483475"
-    },
-    ["Vaporwave"] = {
-        SkyboxBk = "rbxassetid://8631780182", SkyboxDn = "rbxassetid://8631784904",
-        SkyboxFt = "rbxassetid://8631769834", SkyboxLf = "rbxassetid://8631777199",
-        SkyboxRt = "rbxassetid://8631735555", SkyboxUp = "rbxassetid://8631782345"
-    },
-    ["Pinkful Morning"] = {
-        SkyboxBk = "rbxassetid://12635309703", SkyboxDn = "rbxassetid://12635311686",
-        SkyboxFt = "rbxassetid://12635312870", SkyboxLf = "rbxassetid://12635313718",
-        SkyboxRt = "rbxassetid://12635315817", SkyboxUp = "rbxassetid://12635316856"
-    },
-    ["White Purple"] = {
-        SkyboxBk = "rbxassetid://8107841671", SkyboxDn = "rbxassetid://6444884785",
-        SkyboxFt = "rbxassetid://8107841671", SkyboxLf = "rbxassetid://8107841671",
-        SkyboxRt = "rbxassetid://8107841671", SkyboxUp = "rbxassetid://8107849791"
-    },
-    ["White Pink"] = {
-        SkyboxBk = "rbxassetid://11427769401", SkyboxDn = "rbxassetid://11427770685",
-        SkyboxFt = "rbxassetid://11427769401", SkyboxLf = "rbxassetid://11427769401",
-        SkyboxRt = "rbxassetid://11427769401", SkyboxUp = "rbxassetid://11427771954"
-    },
-    ["Cabin Warm"] = {
-        SkyboxBk = "rbxassetid://162001887", SkyboxDn = "rbxassetid://161998893",
-        SkyboxFt = "rbxassetid://162001897", SkyboxLf = "rbxassetid://162001904",
-        SkyboxRt = "rbxassetid://162001919", SkyboxUp = "rbxassetid://162001926"
-    },
-    ["Cloudy 2021"] = {
-        SkyboxBk = "rbxassetid://6563115135", SkyboxDn = "rbxassetid://6563115311",
-        SkyboxFt = "rbxassetid://6563115135", SkyboxLf = "rbxassetid://6563115135",
-        SkyboxRt = "rbxassetid://6563115135", SkyboxUp = "rbxassetid://6563114946"
-    },
-    ["Night 2021"] = {
-        SkyboxBk = "rbxassetid://6563132747", SkyboxDn = "rbxassetid://6563132877",
-        SkyboxFt = "rbxassetid://6563132747", SkyboxLf = "rbxassetid://6563132747",
-        SkyboxRt = "rbxassetid://6563132747", SkyboxUp = "rbxassetid://6563132641"
-    },
-    ["Starry Night"] = {
-        SkyboxBk = "rbxassetid://6568931476", SkyboxDn = "rbxassetid://6568931025",
-        SkyboxFt = "rbxassetid://6568931476", SkyboxLf = "rbxassetid://6568931476",
-        SkyboxRt = "rbxassetid://6568931476", SkyboxUp = "rbxassetid://6568931731"
-    },
+        SkyboxBk = "rbxassetid://323494035",
+        SkyboxDn = "rbxassetid://323494368",
+        SkyboxFt = "rbxassetid://323494130",
+        SkyboxLf = "rbxassetid://323494252",
+        SkyboxRt = "rbxassetid://323494067",
+        SkyboxUp = "rbxassetid://323493360"
+    }
 }
-
 
 local function ApplyFullBright()
     if FullBrightEnabled then
@@ -229,11 +147,6 @@ local function ApplySkyPreset(Name)
     Sky.SkyboxLf = Preset.SkyboxLf
     Sky.SkyboxRt = Preset.SkyboxRt
     Sky.SkyboxUp = Preset.SkyboxUp
-    Sky.CelestialBodiesShown = SkyCelestialBodies
-    Sky.StarCount = SkyStars
-    Sky.SunAngularSize = SkySunSize
-    Sky.MoonAngularSize = SkyMoonSize
-    Sky.SkyboxOrientation = Vector3.new(0, SkyRotation, 0)
     Sky.Parent = Lighting
     CustomSky = Sky
 end
@@ -263,11 +176,6 @@ local function EnforceSky()
     CustomSky.SkyboxLf = Preset.SkyboxLf
     CustomSky.SkyboxRt = Preset.SkyboxRt
     CustomSky.SkyboxUp = Preset.SkyboxUp
-    CustomSky.CelestialBodiesShown = SkyCelestialBodies
-    CustomSky.StarCount = SkyStars
-    CustomSky.SunAngularSize = SkySunSize
-    CustomSky.MoonAngularSize = SkyMoonSize
-    CustomSky.SkyboxOrientation = Vector3.new(0, SkyRotation, 0)
 end
 
 local SetSkyPreset = ApplySkyPreset
@@ -284,87 +192,21 @@ local function ApplyFog()
     end
 end
 
-
-local function GetOrCreateEffect(ClassName, Name)
-    local Existing = Lighting:FindFirstChild(Name)
-    if Existing and Existing:IsA(ClassName) then
-        return Existing
-    end
-
-    local Effect = Instance.new(ClassName)
-    Effect.Name = Name
-    Effect.Parent = Lighting
-    return Effect
-end
-
-local function ApplyPostProcessing()
-    if ColorCorrectionEnabled then
-        ColorCorrectionEffect = ColorCorrectionEffect or GetOrCreateEffect("ColorCorrectionEffect", "MeowMadness_ColorCorrection")
-        ColorCorrectionEffect.Enabled = true
-        ColorCorrectionEffect.Brightness = ColorCorrectionBrightness
-        ColorCorrectionEffect.Contrast = ColorCorrectionContrast
-        ColorCorrectionEffect.Saturation = ColorCorrectionSaturation
-        ColorCorrectionEffect.TintColor = ColorCorrectionTint
-    elseif ColorCorrectionEffect then
-        ColorCorrectionEffect.Enabled = false
-    end
-
-    if BloomEnabled then
-        BloomEffect = BloomEffect or GetOrCreateEffect("BloomEffect", "MeowMadness_Bloom")
-        BloomEffect.Enabled = true
-        BloomEffect.Intensity = BloomIntensity
-        BloomEffect.Size = BloomSize
-        BloomEffect.Threshold = BloomThreshold
-    elseif BloomEffect then
-        BloomEffect.Enabled = false
-    end
-
-    if SunRaysEnabled then
-        SunRaysEffect = SunRaysEffect or GetOrCreateEffect("SunRaysEffect", "MeowMadness_SunRays")
-        SunRaysEffect.Enabled = true
-        SunRaysEffect.Intensity = SunRaysIntensity
-        SunRaysEffect.Spread = SunRaysSpread
-    elseif SunRaysEffect then
-        SunRaysEffect.Enabled = false
-    end
-
-    if AtmosphereEnabled then
-        AtmosphereEffect = AtmosphereEffect or GetOrCreateEffect("Atmosphere", "MeowMadness_Atmosphere")
-        AtmosphereEffect.Density = AtmosphereDensity
-        AtmosphereEffect.Offset = AtmosphereOffset
-        AtmosphereEffect.Color = AtmosphereColor
-        AtmosphereEffect.Decay = AtmosphereDecay
-        AtmosphereEffect.Glare = AtmosphereGlare
-        AtmosphereEffect.Haze = AtmosphereHaze
-    elseif AtmosphereEffect then
-        AtmosphereEffect:Destroy()
-        AtmosphereEffect = nil
-    end
-end
-
-local function ApplyAdvancedLighting()
-    if FullBrightEnabled then
-        ApplyFullBright()
-        return
-    end
-
-    Lighting.ClockTime = ClockTimeValue
-    Lighting.Brightness = BrightnessValue
-    Lighting.ExposureCompensation = ExposureValue
-    Lighting.EnvironmentDiffuseScale = EnvironmentDiffuseValue
-    Lighting.EnvironmentSpecularScale = EnvironmentSpecularValue
-    Lighting.Ambient = AmbientValue
-    Lighting.OutdoorAmbient = OutdoorAmbientValue
-end
-
 local SkyChildConnection = Lighting.ChildAdded:Connect(function(Child)
     if ActiveSkyPreset ~= "Default" and Child:IsA("Sky") and Child ~= CustomSky then
         task.defer(EnforceSky)
     end
 end)
 
-local FullBrightConnection = RunService.RenderStepped:Connect(function(DeltaTime)
-    ApplyAdvancedLighting()
+local FullBrightConnection = RunService.RenderStepped:Connect(function()
+    if FullBrightEnabled then
+        -- Re-apply every frame so games that change Lighting cannot immediately reset FullBright.
+        Lighting.Brightness = FullBrightIntensity
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+    end
 
     if FogEnabled then
         Lighting.FogStart = FogStartValue
@@ -372,12 +214,7 @@ local FullBrightConnection = RunService.RenderStepped:Connect(function(DeltaTime
         Lighting.FogColor = FogColorValue
     end
 
-    if SkySpinEnabled and ActiveSkyPreset ~= "Default" then
-        SkyRotation = (SkyRotation + SkySpinSpeed * DeltaTime) % 360
-    end
-
     EnforceSky()
-    ApplyPostProcessing()
 end)
 
 
@@ -722,6 +559,241 @@ local NoclipEnabled = false
 local NoclipConnection = nil
 local NoclipOriginal = {}
 
+local function GetCharacter()
+    return LocalPlayer.Character
+end
+
+local function GetRoot()
+    local Character = GetCharacter()
+    if not Character then
+        return nil
+    end
+
+    return Character:FindFirstChild("HumanoidRootPart") or Character.PrimaryPart
+end
+
+local function StopFly()
+    FlyEnabled = false
+
+    if FlyConnection then
+        FlyConnection:Disconnect()
+        FlyConnection = nil
+    end
+
+    if FlyVelocity then
+        FlyVelocity:Destroy()
+        FlyVelocity = nil
+    end
+
+    if FlyGyro then
+        FlyGyro:Destroy()
+        FlyGyro = nil
+    end
+
+    local Character = GetCharacter()
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    if Humanoid then
+        Humanoid.AutoRotate = true
+    end
+end
+
+local function StartFly()
+    StopFly()
+
+    local Character = GetCharacter()
+    local Root = GetRoot()
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+    if not Character or not Root or not Humanoid then
+        return
+    end
+
+    FlyEnabled = true
+    Humanoid.AutoRotate = false
+
+    FlyVelocity = Instance.new("BodyVelocity")
+    FlyVelocity.Name = "MeowMadnessFlyVelocity"
+    FlyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    FlyVelocity.P = 90000
+    FlyVelocity.Velocity = Vector3.zero
+    FlyVelocity.Parent = Root
+
+    FlyGyro = Instance.new("BodyGyro")
+    FlyGyro.Name = "MeowMadnessFlyGyro"
+    FlyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    FlyGyro.P = 90000
+    FlyGyro.D = 1000
+    FlyGyro.CFrame = Root.CFrame
+    FlyGyro.Parent = Root
+
+    FlyConnection = RunService.RenderStepped:Connect(function()
+        if not FlyEnabled then
+            return
+        end
+
+        local CurrentCharacter = GetCharacter()
+        local CurrentRoot = GetRoot()
+        local CurrentHumanoid = CurrentCharacter and CurrentCharacter:FindFirstChildOfClass("Humanoid")
+        local Camera = Workspace.CurrentCamera
+
+        if not CurrentCharacter or not CurrentRoot or not CurrentHumanoid or not Camera then
+            StopFly()
+            return
+        end
+
+        if not FlyVelocity or FlyVelocity.Parent ~= CurrentRoot then
+            StartFly()
+            return
+        end
+
+        local Look = Camera.CFrame.LookVector
+        local Right = Camera.CFrame.RightVector
+        local Direction = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            Direction += Look
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            Direction -= Look
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            Direction += Right
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            Direction -= Right
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            Direction += Vector3.yAxis
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            Direction -= Vector3.yAxis
+        end
+
+        if Direction.Magnitude > 0 then
+            Direction = Direction.Unit
+        end
+
+        FlyVelocity.Velocity = Direction * FlySpeed
+        FlyGyro.CFrame = CFrame.lookAt(CurrentRoot.Position, CurrentRoot.Position + Look)
+        CurrentHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    end)
+end
+
+local function SetNoclip(Value)
+    NoclipEnabled = Value
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    if not Value then
+        for Part, OriginalCanCollide in pairs(NoclipOriginal) do
+            if Part and Part.Parent then
+                Part.CanCollide = OriginalCanCollide
+            end
+        end
+        table.clear(NoclipOriginal)
+        return
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        local Character = GetCharacter()
+        if not Character then
+            return
+        end
+
+        for _, Part in ipairs(Character:GetDescendants()) do
+            if Part:IsA("BasePart") then
+                if NoclipOriginal[Part] == nil then
+                    NoclipOriginal[Part] = Part.CanCollide
+                end
+                Part.CanCollide = false
+            end
+        end
+    end)
+end
+
+local function SetupMovementOnCharacter()
+    local Character = LocalPlayer.Character
+    if not Character then
+        return
+    end
+
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then
+        return
+    end
+
+    Humanoid.WalkSpeed = DesiredWalkSpeed
+    Humanoid.UseJumpPower = true
+    Humanoid.JumpPower = DesiredJumpPower
+
+    task.spawn(function()
+        local Connection
+
+        Connection = Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+            if Humanoid.Parent and Humanoid.WalkSpeed ~= DesiredWalkSpeed then
+                Humanoid.WalkSpeed = DesiredWalkSpeed
+            else
+                if Connection then
+                    Connection:Disconnect()
+                end
+            end
+        end)
+
+        task.wait(0.05)
+
+        if Connection and Connection.Connected and Humanoid.Parent then
+            -- Keep a persistent connection for this humanoid.
+        end
+    end)
+
+    task.spawn(function()
+        local Connection
+
+        Connection = Humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+            if Humanoid.Parent and Humanoid.JumpPower ~= DesiredJumpPower then
+                Humanoid.JumpPower = DesiredJumpPower
+            else
+                if Connection then
+                    Connection:Disconnect()
+                end
+            end
+        end)
+    end)
+end
+
+task.spawn(function()
+    while true do
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+        if Humanoid then
+            if Humanoid.WalkSpeed ~= DesiredWalkSpeed then
+                Humanoid.WalkSpeed = DesiredWalkSpeed
+            end
+
+            Humanoid.UseJumpPower = true
+
+            if Humanoid.JumpPower ~= DesiredJumpPower then
+                Humanoid.JumpPower = DesiredJumpPower
+            end
+        end
+
+        task.wait(0.1)
+    end
+end)
+
+local CharacterAddedConnection = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.25)
+    SetupMovementOnCharacter()
+end)
 
 local MainLeft = MainTab:AddLeftGroupbox("Main")
 MainLeft:AddLabel("Meow Madness")
@@ -1224,12 +1296,7 @@ LightingLeft:AddSlider("FullBrightIntensity", {
 
 LightingLeft:AddDropdown("SkyChanger", {
     Text = "Sky Changer",
-    Values = {
-        "Default",
-        "Purple Nebula", "Dusty Clouds", "Night Sky", "Pink Daylight", "Sunset",
-        "Redshift", "Blue Classic", "Vaporwave", "Pinkful Morning", "White Purple",
-        "White Pink", "Cabin Warm", "Cloudy 2021", "Night 2021", "Starry Night"
-    },
+    Values = {"Default", "Purple Nebula", "Dusty Clouds", "Night Sky", "Pink Daylight", "Sunset"},
     Default = 1,
     Callback = function(Value)
         SetSkyPreset(Value)
@@ -1275,386 +1342,6 @@ FogGroup:AddSlider("FogEnd", {
     Callback = function(Value)
         FogEndValue = Value
         ApplyFog()
-    end
-})
-
-
-local LightingGroup = VisualsTab:AddLeftGroupbox("Advanced Lighting")
-
-LightingGroup:AddSlider("ClockTime", {
-    Text = "Clock Time",
-    Default = ClockTimeValue,
-    Min = 0,
-    Max = 24,
-    Rounding = 2,
-    Callback = function(Value)
-        ClockTimeValue = Value
-        if not FullBrightEnabled then
-            Lighting.ClockTime = Value
-        end
-    end
-})
-
-LightingGroup:AddSlider("LightingBrightness", {
-    Text = "Brightness",
-    Default = BrightnessValue,
-    Min = 0,
-    Max = 10,
-    Rounding = 2,
-    Callback = function(Value)
-        BrightnessValue = Value
-        if not FullBrightEnabled then
-            Lighting.Brightness = Value
-        end
-    end
-})
-
-LightingGroup:AddSlider("ExposureCompensation", {
-    Text = "Exposure",
-    Default = ExposureValue,
-    Min = -5,
-    Max = 5,
-    Rounding = 2,
-    Callback = function(Value)
-        ExposureValue = Value
-        Lighting.ExposureCompensation = Value
-    end
-})
-
-LightingGroup:AddSlider("EnvironmentDiffuse", {
-    Text = "Diffuse Scale",
-    Default = EnvironmentDiffuseValue,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        EnvironmentDiffuseValue = Value
-        Lighting.EnvironmentDiffuseScale = Value
-    end
-})
-
-LightingGroup:AddSlider("EnvironmentSpecular", {
-    Text = "Specular Scale",
-    Default = EnvironmentSpecularValue,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        EnvironmentSpecularValue = Value
-        Lighting.EnvironmentSpecularScale = Value
-    end
-})
-
-LightingGroup:AddColorPicker("AmbientColor", {
-    Default = AmbientValue,
-    Title = "Ambient Color",
-    Callback = function(Value)
-        AmbientValue = Value
-        if not FullBrightEnabled then
-            Lighting.Ambient = Value
-        end
-    end
-})
-
-LightingGroup:AddColorPicker("OutdoorAmbientColor", {
-    Default = OutdoorAmbientValue,
-    Title = "Outdoor Ambient",
-    Callback = function(Value)
-        OutdoorAmbientValue = Value
-        if not FullBrightEnabled then
-            Lighting.OutdoorAmbient = Value
-        end
-    end
-})
-
-local SkySettings = VisualsTab:AddRightGroupbox("Sky Customization")
-
-SkySettings:AddToggle("SkyCelestialBodies", {
-    Text = "Celestial Bodies",
-    Default = true,
-    Callback = function(Value)
-        SkyCelestialBodies = Value
-        EnforceSky()
-    end
-})
-
-SkySettings:AddSlider("SkyStars", {
-    Text = "Star Count",
-    Default = 3000,
-    Min = 0,
-    Max = 5000,
-    Rounding = 0,
-    Callback = function(Value)
-        SkyStars = Value
-        EnforceSky()
-    end
-})
-
-SkySettings:AddSlider("SkySunSize", {
-    Text = "Sun Size",
-    Default = 21,
-    Min = 0,
-    Max = 60,
-    Rounding = 0,
-    Callback = function(Value)
-        SkySunSize = Value
-        EnforceSky()
-    end
-})
-
-SkySettings:AddSlider("SkyMoonSize", {
-    Text = "Moon Size",
-    Default = 11,
-    Min = 0,
-    Max = 60,
-    Rounding = 0,
-    Callback = function(Value)
-        SkyMoonSize = Value
-        EnforceSky()
-    end
-})
-
-SkySettings:AddSlider("SkyRotation", {
-    Text = "Sky Rotation",
-    Default = 0,
-    Min = 0,
-    Max = 360,
-    Rounding = 0,
-    Callback = function(Value)
-        SkyRotation = Value
-        EnforceSky()
-    end
-})
-
-SkySettings:AddToggle("SkySpin", {
-    Text = "Spin Sky",
-    Default = false,
-    Callback = function(Value)
-        SkySpinEnabled = Value
-    end
-})
-
-SkySettings:AddSlider("SkySpinSpeed", {
-    Text = "Spin Speed",
-    Default = 10,
-    Min = 1,
-    Max = 100,
-    Rounding = 0,
-    Callback = function(Value)
-        SkySpinSpeed = Value
-    end
-})
-
-local ColorGroup = VisualsTab:AddLeftGroupbox("Color Correction")
-
-ColorGroup:AddToggle("ColorCorrection", {
-    Text = "Color Correction",
-    Default = false,
-    Callback = function(Value)
-        ColorCorrectionEnabled = Value
-        ApplyPostProcessing()
-    end
-})
-
-ColorGroup:AddSlider("CCBrightness", {
-    Text = "Brightness",
-    Default = 0,
-    Min = -1,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        ColorCorrectionBrightness = Value
-        ApplyPostProcessing()
-    end
-})
-
-ColorGroup:AddSlider("CCContrast", {
-    Text = "Contrast",
-    Default = 0,
-    Min = -1,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        ColorCorrectionContrast = Value
-        ApplyPostProcessing()
-    end
-})
-
-ColorGroup:AddSlider("CCSaturation", {
-    Text = "Saturation",
-    Default = 0,
-    Min = -1,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        ColorCorrectionSaturation = Value
-        ApplyPostProcessing()
-    end
-})
-
-ColorGroup:AddColorPicker("CCTint", {
-    Default = ColorCorrectionTint,
-    Title = "Tint Color",
-    Callback = function(Value)
-        ColorCorrectionTint = Value
-        ApplyPostProcessing()
-    end
-})
-
-local EffectsGroup = VisualsTab:AddRightGroupbox("Effects")
-
-EffectsGroup:AddToggle("Bloom", {
-    Text = "Bloom",
-    Default = false,
-    Callback = function(Value)
-        BloomEnabled = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddSlider("BloomIntensity", {
-    Text = "Bloom Intensity",
-    Default = 0.8,
-    Min = 0,
-    Max = 5,
-    Rounding = 2,
-    Callback = function(Value)
-        BloomIntensity = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddSlider("BloomSize", {
-    Text = "Bloom Size",
-    Default = 24,
-    Min = 0,
-    Max = 56,
-    Rounding = 0,
-    Callback = function(Value)
-        BloomSize = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddSlider("BloomThreshold", {
-    Text = "Bloom Threshold",
-    Default = 1,
-    Min = 0,
-    Max = 5,
-    Rounding = 2,
-    Callback = function(Value)
-        BloomThreshold = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddToggle("SunRays", {
-    Text = "Sun Rays",
-    Default = false,
-    Callback = function(Value)
-        SunRaysEnabled = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddSlider("SunRaysIntensity", {
-    Text = "Sun Rays Intensity",
-    Default = 0.12,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        SunRaysIntensity = Value
-        ApplyPostProcessing()
-    end
-})
-
-EffectsGroup:AddSlider("SunRaysSpread", {
-    Text = "Sun Rays Spread",
-    Default = 1,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        SunRaysSpread = Value
-        ApplyPostProcessing()
-    end
-})
-
-local AtmosphereGroup = VisualsTab:AddLeftGroupbox("Atmosphere")
-
-AtmosphereGroup:AddToggle("AtmosphereEnabled", {
-    Text = "Atmosphere",
-    Default = false,
-    Callback = function(Value)
-        AtmosphereEnabled = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddSlider("AtmosphereDensity", {
-    Text = "Density",
-    Default = 0.2,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        AtmosphereDensity = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddSlider("AtmosphereOffset", {
-    Text = "Offset",
-    Default = 0,
-    Min = -1,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        AtmosphereOffset = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddSlider("AtmosphereHaze", {
-    Text = "Haze",
-    Default = 0,
-    Min = 0,
-    Max = 5,
-    Rounding = 2,
-    Callback = function(Value)
-        AtmosphereHaze = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddSlider("AtmosphereGlare", {
-    Text = "Glare",
-    Default = 0,
-    Min = 0,
-    Max = 10,
-    Rounding = 2,
-    Callback = function(Value)
-        AtmosphereGlare = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddColorPicker("AtmosphereColor", {
-    Default = AtmosphereColor,
-    Title = "Atmosphere Color",
-    Callback = function(Value)
-        AtmosphereColor = Value
-        ApplyPostProcessing()
-    end
-})
-
-AtmosphereGroup:AddColorPicker("AtmosphereDecay", {
-    Default = AtmosphereDecay,
-    Title = "Atmosphere Decay",
-    Callback = function(Value)
-        AtmosphereDecay = Value
-        ApplyPostProcessing()
     end
 })
 
@@ -1916,10 +1603,6 @@ ESPActions:AddButton({
 })
 
 Library:OnUnload(function()
-    if ColorCorrectionEffect then ColorCorrectionEffect:Destroy() end
-    if BloomEffect then BloomEffect:Destroy() end
-    if SunRaysEffect then SunRaysEffect:Destroy() end
-    if AtmosphereEffect then AtmosphereEffect:Destroy() end
     StopFly()
     SetNoclip(false)
     if CharacterAddedConnection then
