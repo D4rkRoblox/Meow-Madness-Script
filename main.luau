@@ -30,6 +30,14 @@ local FogStartValue = Lighting.FogStart
 local FogEndValue = Lighting.FogEnd
 local FogColorValue = Lighting.FogColor
 local CustomSky = nil
+local ActiveSkyPreset = "Default"
+local SavedSkies = {}
+
+for _, Child in ipairs(Lighting:GetChildren()) do
+    if Child:IsA("Sky") then
+        table.insert(SavedSkies, Child:Clone())
+    end
+end
 
 local SkyPresets = {
     ["Purple Nebula"] = {
@@ -90,16 +98,44 @@ local function ApplyFullBright()
     end
 end
 
-local function SetSkyPreset(Name)
-    if CustomSky and CustomSky.Parent then
-        CustomSky:Destroy()
+local function RemoveAllSkiesExcept(Keep)
+    for _, Child in ipairs(Lighting:GetChildren()) do
+        if Child:IsA("Sky") and Child ~= Keep then
+            Child:Destroy()
+        end
+    end
+end
+
+local function ApplySkyPreset(Name)
+    if Name == "Default" then
+        ActiveSkyPreset = "Default"
+
+        if CustomSky and CustomSky.Parent then
+            CustomSky:Destroy()
+        end
         CustomSky = nil
+
+        RemoveAllSkiesExcept(nil)
+
+        for _, SavedSky in ipairs(SavedSkies) do
+            SavedSky:Clone().Parent = Lighting
+        end
+
+        return
     end
 
     local Preset = SkyPresets[Name]
     if not Preset then
         return
     end
+
+    ActiveSkyPreset = Name
+
+    if CustomSky and CustomSky.Parent then
+        CustomSky:Destroy()
+    end
+
+    RemoveAllSkiesExcept(nil)
 
     local Sky = Instance.new("Sky")
     Sky.Name = "MeowMadness_CustomSky"
@@ -113,6 +149,35 @@ local function SetSkyPreset(Name)
     CustomSky = Sky
 end
 
+local function EnforceSky()
+    if ActiveSkyPreset == "Default" then
+        return
+    end
+
+    local Preset = SkyPresets[ActiveSkyPreset]
+    if not Preset then
+        return
+    end
+
+    if not CustomSky or not CustomSky.Parent then
+        local Sky = Instance.new("Sky")
+        Sky.Name = "MeowMadness_CustomSky"
+        Sky.Parent = Lighting
+        CustomSky = Sky
+    end
+
+    RemoveAllSkiesExcept(CustomSky)
+
+    CustomSky.SkyboxBk = Preset.SkyboxBk
+    CustomSky.SkyboxDn = Preset.SkyboxDn
+    CustomSky.SkyboxFt = Preset.SkyboxFt
+    CustomSky.SkyboxLf = Preset.SkyboxLf
+    CustomSky.SkyboxRt = Preset.SkyboxRt
+    CustomSky.SkyboxUp = Preset.SkyboxUp
+end
+
+local SetSkyPreset = ApplySkyPreset
+
 local function ApplyFog()
     if FogEnabled then
         Lighting.FogStart = FogStartValue
@@ -124,6 +189,12 @@ local function ApplyFog()
         Lighting.FogColor = OriginalLighting.FogColor
     end
 end
+
+local SkyChildConnection = Lighting.ChildAdded:Connect(function(Child)
+    if ActiveSkyPreset ~= "Default" and Child:IsA("Sky") and Child ~= CustomSky then
+        task.defer(EnforceSky)
+    end
+end)
 
 local FullBrightConnection = RunService.RenderStepped:Connect(function()
     if FullBrightEnabled then
@@ -140,6 +211,8 @@ local FullBrightConnection = RunService.RenderStepped:Connect(function()
         Lighting.FogEnd = FogEndValue
         Lighting.FogColor = FogColorValue
     end
+
+    EnforceSky()
 end)
 
 
@@ -249,7 +322,9 @@ local function SetPlayerESP(Value)
 
     if Value then
         for _, Player in ipairs(Players:GetPlayers()) do
-            AddPlayerESP(Player)
+            task.defer(function()
+                AddPlayerESP(Player)
+            end)
         end
     else
         for _, Player in ipairs(Players:GetPlayers()) do
@@ -419,6 +494,14 @@ task.spawn(function()
     while not ESPLibrary.Unloaded do
         if FishESPEnabled then
             ScanForFish()
+        end
+
+        if PlayerESPEnabled then
+            for _, Player in ipairs(Players:GetPlayers()) do
+                if Player ~= LocalPlayer and Player.Character and not PlayerESPObjects[Player] then
+                    AddPlayerESP(Player)
+                end
+            end
         end
 
         task.wait(1)
@@ -1110,6 +1193,10 @@ ESPSettings:AddSlider("ESPDistanceSizeRatio", {
 Library:OnUnload(function()
     if FullBrightConnection then
         FullBrightConnection:Disconnect()
+    end
+
+    if SkyChildConnection then
+        SkyChildConnection:Disconnect()
     end
 
     Lighting.Brightness = OriginalLighting.Brightness
