@@ -968,6 +968,26 @@ local function GetCharacterRootPart()
     return Character, Root
 end
 
+local function GetCollectPart(Object)
+    if not Object then
+        return nil
+    end
+
+    if Object:IsA("BasePart") then
+        return Object
+    end
+
+    if Object:IsA("Model") then
+        if Object.PrimaryPart then
+            return Object.PrimaryPart
+        end
+
+        return Object:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    return Object:FindFirstChildWhichIsA("BasePart", true)
+end
+
 local function TryCollectObject(Object)
     if not Object or not Object.Parent or Object:IsA("Sound") then
         return false
@@ -1003,8 +1023,9 @@ local function TryCollectObject(Object)
 
     local Prompt = Object:FindFirstChildWhichIsA("ProximityPrompt", true)
     local ClickDetector = Object:FindFirstChildWhichIsA("ClickDetector", true)
+    local CollectPart = GetCollectPart(Object)
 
-    if AutoCollectFishInteractionOnly and not Prompt and not ClickDetector then
+    if AutoCollectFishInteractionOnly and not Prompt and not ClickDetector and not CollectPart then
         return false
     end
 
@@ -1015,38 +1036,63 @@ local function TryCollectObject(Object)
             Character:PivotTo(TeleportCFrame)
         end)
 
-        task.wait(0.03)
+        task.wait(0.06)
     end
 
     local Collected = false
 
-    if Prompt then
+    -- ProximityPrompt path.
+    if Prompt and Prompt.Enabled then
         if typeof(fireproximityprompt) == "function" then
             local Success = pcall(function()
-                fireproximityprompt(Prompt)
+                fireproximityprompt(Prompt, 1, true)
             end)
-            Collected = Success
+            Collected = Success or Collected
         else
             local Success = pcall(function()
                 Prompt:InputHoldBegin()
-                task.wait(math.max(Prompt.HoldDuration, 0.03))
+                task.wait(math.max(Prompt.HoldDuration, 0.05))
                 Prompt:InputHoldEnd()
             end)
-            Collected = Success
+            Collected = Success or Collected
         end
     end
 
+    -- ClickDetector path.
     if ClickDetector and typeof(fireclickdetector) == "function" then
         local Success = pcall(function()
             fireclickdetector(ClickDetector)
         end)
-        Collected = Collected or Success
+        Collected = Success or Collected
     end
 
-    -- If the pickup has no explicit interaction object, the movement itself
-    -- is still performed when teleport mode is enabled.
-    if not Prompt and not ClickDetector and AutoCollectFishTeleport then
-        Collected = true
+    -- Touch-based pickup path.
+    if CollectPart and typeof(firetouchinterest) == "function" then
+        local Success = pcall(function()
+            firetouchinterest(Root, CollectPart, 0)
+            task.wait()
+            firetouchinterest(Root, CollectPart, 1)
+        end)
+        Collected = Success or Collected
+    end
+
+    -- Some pickup systems register only when the root is physically at the object.
+    if CollectPart then
+        pcall(function()
+            Root.CFrame = TargetCFrame * CFrame.new(0, AutoCollectFishOffset, 0)
+        end)
+
+        task.wait(0.05)
+
+        if typeof(firetouchinterest) == "function" then
+            pcall(function()
+                firetouchinterest(Root, CollectPart, 0)
+                firetouchinterest(Root, CollectPart, 1)
+            end)
+            Collected = true
+        elseif not Prompt and not ClickDetector and AutoCollectFishTeleport then
+            Collected = true
+        end
     end
 
     return Collected
@@ -1054,20 +1100,27 @@ end
 
 local function GetFishCollectables()
     local Folder = Workspace:FindFirstChild("FishPickups")
-    if not Folder then
+    if not Folder or not Folder:IsA("Folder") then
         return {}
     end
 
     local Results = {}
+    local Seen = {}
 
-    -- Pickups are treated as the direct children of FishPickups.
-    -- Sounds and other non-collectable objects are ignored.
-    for _, Object in ipairs(Folder:GetChildren()) do
+    for _, Object in ipairs(Folder:GetDescendants()) do
         if Object.Parent
             and not Object:IsA("Sound")
             and (Object:IsA("Model") or Object:IsA("BasePart"))
         then
-            table.insert(Results, Object)
+            -- Prefer the actual pickup model when a BasePart is inside a Model.
+            if Object:IsA("BasePart") and Object.Parent:IsA("Model") then
+                continue
+            end
+
+            if not Seen[Object] then
+                Seen[Object] = true
+                table.insert(Results, Object)
+            end
         end
     end
 
@@ -1167,12 +1220,8 @@ AutoLeft:AddToggle("AutoCollectFish", {
 AutoLeft:AddButton({
     Text = "Collect Fish Once",
     Func = function()
-        if AutoCollectFishRunning then
-            return
-        end
-
         task.spawn(function()
-            local Character, Root = GetCharacterRootPart()
+            local _, Root = GetCharacterRootPart()
             if not Root then
                 return
             end
@@ -1314,10 +1363,12 @@ local function GetCharacterRoot(Character)
         or Character:FindFirstChildWhichIsA("BasePart")
 end
 
-local function FollowPlayerForTime(TargetPlayer, Duration)
+local function FollowPlayerForTime(TargetPlayer, Duration, IgnoreRageToggle)
     local StartTime = os.clock()
 
-    while RageEnabled and os.clock() - StartTime < Duration do
+    while (IgnoreRageToggle or RageEnabled)
+        and os.clock() - StartTime < Duration
+    do
         local Character = LocalPlayer.Character
         local TargetCharacter = TargetPlayer.Character
 
@@ -1392,11 +1443,11 @@ RageLeft:AddButton({
         task.spawn(function()
             RageRunning = true
 
-            for _, Player in ipairs(Players:GetPlayers()) do
-                if not RageEnabled and Player ~= LocalPlayer and Player.Parent == Players then
-                    FollowPlayerForTime(Player, RageStayTime)
-                elseif RageEnabled and Player ~= LocalPlayer and Player.Parent == Players then
-                    FollowPlayerForTime(Player, RageStayTime)
+            local PlayerList = Players:GetPlayers()
+
+            for _, Player in ipairs(PlayerList) do
+                if Player ~= LocalPlayer and Player.Parent == Players then
+                    FollowPlayerForTime(Player, RageStayTime, true)
                 end
             end
 
