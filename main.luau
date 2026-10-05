@@ -560,12 +560,8 @@ local NoclipConnection = nil
 local NoclipOriginal = {}
 
 -- Main player helpers.
-local GodmodeEnabled = false
-local GodmodeConnection = nil
 local GodmodeForceField = nil
 
-local WalkTeleportEnabled = false
-local WalkTeleportSpeed = 16
 local WalkTeleportConnection = nil
 local WalkTeleportPosition = nil
 
@@ -938,57 +934,63 @@ MainLeft:AddButton({
     end
 })
 
-local MainUtility = MainTab:AddLeftGroupbox("Player Utility")
+local SuperNoclipGroup = MainTab:AddLeftGroupbox("Super Noclip")
 
-MainUtility:AddToggle("Godmode", {
-    Text = "Godmode",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            StartGodmode()
-        else
-            StopGodmode()
-        end
+local SuperNoclipEnabled = false
+local SuperNoclipConnection = nil
+
+local function SetSuperNoclip(Value)
+    SuperNoclipEnabled = Value
+
+    if SuperNoclipConnection then
+        SuperNoclipConnection:Disconnect()
+        SuperNoclipConnection = nil
     end
-}):AddKeyPicker("GodmodeKey", {
+
+    if not Value then
+        local Character = LocalPlayer.Character
+
+        if Character then
+            for _, Object in ipairs(Character:GetDescendants()) do
+                if Object:IsA("BasePart") then
+                    Object.CanCollide = true
+                end
+            end
+        end
+
+        return
+    end
+
+    SuperNoclipConnection = RunService.Stepped:Connect(function()
+        local Character = LocalPlayer.Character
+
+        if not Character then
+            return
+        end
+
+        for _, Object in ipairs(Character:GetDescendants()) do
+            if Object:IsA("BasePart") then
+                Object.CanCollide = false
+                Object.CanTouch = true
+                Object.CanQuery = true
+            end
+        end
+    end)
+end
+
+SuperNoclipGroup:AddToggle("SuperNoclip", {
+    Text = "Super Noclip",
+    Default = false,
+    Callback = SetSuperNoclip
+}):AddKeyPicker("SuperNoclipKey", {
     Default = "None",
     SyncToggleState = true,
     Mode = "Toggle",
-    Text = "Godmode",
+    Text = "Super Noclip",
     NoUI = false
 })
 
-MainUtility:AddToggle("WalkTeleport", {
-    Text = "Walk Teleport",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            StartWalkTeleport()
-        else
-            StopWalkTeleport()
-        end
-    end
-}):AddKeyPicker("WalkTeleportKey", {
-    Default = "None",
-    SyncToggleState = true,
-    Mode = "Toggle",
-    Text = "Walk Teleport",
-    NoUI = false
-})
-
-MainUtility:AddSlider("WalkTeleportSpeed", {
-    Text = "Walk Teleport Speed",
-    Default = 16,
-    Min = 1,
-    Max = 300,
-    Rounding = 0,
-    Suffix = " sps",
-    Callback = function(Value)
-        WalkTeleportSpeed = Value
-    end
-})
-
-MainUtility:AddLabel("Walk normally and your character is teleported to the walked position.")
+SuperNoclipGroup:AddLabel("Walk through walls and other collidable parts.")
 
 local MainPlayer = MainTab:AddRightGroupbox("Player")
 
@@ -1783,6 +1785,7 @@ ESPActions:AddButton({
 })
 
 Library:OnUnload(function()
+    SetSuperNoclip(false)
     StopGodmode()
     StopWalkTeleport()
     StopFly()
