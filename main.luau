@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 
 local OriginalLighting = {
     Brightness = Lighting.Brightness,
@@ -123,6 +124,23 @@ local function ApplyFog()
         Lighting.FogColor = OriginalLighting.FogColor
     end
 end
+
+local FullBrightConnection = RunService.RenderStepped:Connect(function()
+    if FullBrightEnabled then
+        -- Re-apply every frame so games that change Lighting cannot immediately reset FullBright.
+        Lighting.Brightness = FullBrightIntensity
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+    end
+
+    if FogEnabled then
+        Lighting.FogStart = FogStartValue
+        Lighting.FogEnd = FogEndValue
+        Lighting.FogColor = FogColorValue
+    end
+end)
 
 
 local Window = Library:CreateWindow({
@@ -1090,6 +1108,10 @@ ESPSettings:AddSlider("ESPDistanceSizeRatio", {
 })
 
 Library:OnUnload(function()
+    if FullBrightConnection then
+        FullBrightConnection:Disconnect()
+    end
+
     Lighting.Brightness = OriginalLighting.Brightness
     Lighting.Ambient = OriginalLighting.Ambient
     Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
