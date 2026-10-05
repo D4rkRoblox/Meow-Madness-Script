@@ -547,6 +547,9 @@ ESPLibrary:SetDistanceSizeRatio(0.8)
 
 
 -- Movement
+local DesiredWalkSpeed = 16
+local DesiredJumpPower = 50
+
 local FlyEnabled = false
 local FlySpeed = 80
 local FlyVelocity = nil
@@ -717,14 +720,75 @@ local function SetNoclip(Value)
 end
 
 local function SetupMovementOnCharacter()
-    if FlyEnabled then
-        task.defer(StartFly)
+    local Character = LocalPlayer.Character
+    if not Character then
+        return
     end
 
-    if NoclipEnabled and not NoclipConnection then
-        SetNoclip(true)
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then
+        return
     end
+
+    Humanoid.WalkSpeed = DesiredWalkSpeed
+    Humanoid.UseJumpPower = true
+    Humanoid.JumpPower = DesiredJumpPower
+
+    task.spawn(function()
+        local Connection
+
+        Connection = Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+            if Humanoid.Parent and Humanoid.WalkSpeed ~= DesiredWalkSpeed then
+                Humanoid.WalkSpeed = DesiredWalkSpeed
+            else
+                if Connection then
+                    Connection:Disconnect()
+                end
+            end
+        end)
+
+        task.wait(0.05)
+
+        if Connection and Connection.Connected and Humanoid.Parent then
+            -- Keep a persistent connection for this humanoid.
+        end
+    end)
+
+    task.spawn(function()
+        local Connection
+
+        Connection = Humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+            if Humanoid.Parent and Humanoid.JumpPower ~= DesiredJumpPower then
+                Humanoid.JumpPower = DesiredJumpPower
+            else
+                if Connection then
+                    Connection:Disconnect()
+                end
+            end
+        end)
+    end)
 end
+
+task.spawn(function()
+    while true do
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+        if Humanoid then
+            if Humanoid.WalkSpeed ~= DesiredWalkSpeed then
+                Humanoid.WalkSpeed = DesiredWalkSpeed
+            end
+
+            Humanoid.UseJumpPower = true
+
+            if Humanoid.JumpPower ~= DesiredJumpPower then
+                Humanoid.JumpPower = DesiredJumpPower
+            end
+        end
+
+        task.wait(0.1)
+    end
+end)
 
 local CharacterAddedConnection = LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.25)
@@ -735,49 +799,7 @@ local MainLeft = MainTab:AddLeftGroupbox("Main")
 MainLeft:AddLabel("Meow Madness")
 MainLeft:AddLabel("Player: " .. LocalPlayer.Name)
 
-local MainRight = MainTab:AddRightGroupbox("Options")
-MainRight:AddToggle("MainEnabled", {
-    Text = "Enabled",
-    Default = true,
-    Callback = function(Value)
-        print("Main Enabled:", Value)
-    end
-})
-
-local MainPlayer = MainTab:AddLeftGroupbox("Player")
-
-MainPlayer:AddSlider("MainWalkSpeed", {
-    Text = "Walk Speed",
-    Default = 16,
-    Min = 16,
-    Max = 200,
-    Rounding = 0,
-    Callback = function(Value)
-        local Character = LocalPlayer.Character
-        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            Humanoid.WalkSpeed = Value
-        end
-    end
-})
-
-MainPlayer:AddSlider("MainJumpPower", {
-    Text = "Jump Power",
-    Default = 50,
-    Min = 16,
-    Max = 200,
-    Rounding = 0,
-    Callback = function(Value)
-        local Character = LocalPlayer.Character
-        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            Humanoid.UseJumpPower = true
-            Humanoid.JumpPower = Value
-        end
-    end
-})
-
-MainPlayer:AddButton({
+MainLeft:AddButton({
     Text = "Reset Character",
     Func = function()
         local Character = LocalPlayer.Character
@@ -788,6 +810,31 @@ MainPlayer:AddButton({
     end
 })
 
+local MainPlayer = MainTab:AddRightGroupbox("Player")
+
+MainPlayer:AddSlider("MainWalkSpeed", {
+    Text = "Walk Speed",
+    Default = 16,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Callback = function(Value)
+        DesiredWalkSpeed = Value
+        SetupMovementOnCharacter()
+    end
+})
+
+MainPlayer:AddSlider("MainJumpPower", {
+    Text = "Jump Power",
+    Default = 50,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Callback = function(Value)
+        DesiredJumpPower = Value
+        SetupMovementOnCharacter()
+    end
+})
 
 local MovementGroup = MainTab:AddRightGroupbox("Movement")
 
