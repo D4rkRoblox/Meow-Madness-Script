@@ -248,8 +248,15 @@ local RageTab = Window:AddTab({
 local VisualsTab = Window:AddTab({
     Name = "Visuals",
     Icon = "eye",
-    Description = "Visual features",
+    Description = "Lighting and environment",
     Order = 4
+})
+
+local ESPTab = Window:AddTab({
+    Name = "ESP",
+    Icon = "scan",
+    Description = "Player and Fish ESP",
+    Order = 5
 })
 
 local PlayerESPEnabled = false
@@ -262,7 +269,7 @@ local FishESPColor = Color3.fromRGB(80, 170, 255)
 local FishESPObjects = {}
 
 local function AddESP(Object, Text, Color)
-    if not Object then
+    if not Object or not Object.Parent then
         return false
     end
 
@@ -270,13 +277,15 @@ local function AddESP(Object, Text, Color)
         return false
     end
 
-    ESPLibrary:AddESP({
-        Object = Object,
-        Text = Text,
-        Color = Color
-    })
+    local Success = pcall(function()
+        ESPLibrary:AddESP({
+            Object = Object,
+            Text = Text,
+            Color = Color
+        })
+    end)
 
-    return true
+    return Success
 end
 
 local function RemoveESP(Object)
@@ -380,9 +389,18 @@ local function ScanForFish()
         return
     end
 
-    for _, Object in ipairs(Folder:GetDescendants()) do
+    for _, Object in ipairs(Folder:GetChildren()) do
         if IsFishESPObject(Object) then
             AddFishESP(Object)
+        elseif Object:IsA("Folder") or Object:IsA("Model") then
+            for _, Descendant in ipairs(Object:GetDescendants()) do
+                if Descendant:IsA("Sound") then
+                    continue
+                end
+                if Descendant:IsA("Model") and Descendant ~= Object then
+                    AddFishESP(Descendant)
+                end
+            end
         end
     end
 end
@@ -957,8 +975,8 @@ FogGroup:AddColorPicker("FogColor", {
     end
 })
 
-local VisualsLeft = VisualsTab:AddLeftGroupbox("Player ESP")
-VisualsLeft:AddToggle("PlayerESP", {
+local PlayerESPGroup = ESPTab:AddLeftGroupbox("Player ESP")
+PlayerESPGroup:AddToggle("PlayerESP", {
     Text = "Player ESP",
     Default = false,
     Callback = function(Value)
@@ -973,7 +991,7 @@ VisualsLeft:AddToggle("PlayerESP", {
     end
 })
 
-VisualsLeft:AddToggle("PlayerESPDistance", {
+PlayerESPGroup:AddToggle("PlayerESPDistance", {
     Text = "Show Distance",
     Default = true,
     Callback = function(Value)
@@ -981,7 +999,7 @@ VisualsLeft:AddToggle("PlayerESPDistance", {
     end
 })
 
-VisualsLeft:AddToggle("PlayerESPTracers", {
+PlayerESPGroup:AddToggle("PlayerESPTracers", {
     Text = "Tracers",
     Default = false,
     Callback = function(Value)
@@ -989,7 +1007,7 @@ VisualsLeft:AddToggle("PlayerESPTracers", {
     end
 })
 
-VisualsLeft:AddToggle("PlayerESPArrows", {
+PlayerESPGroup:AddToggle("PlayerESPArrows", {
     Text = "Arrows",
     Default = false,
     Callback = function(Value)
@@ -997,7 +1015,7 @@ VisualsLeft:AddToggle("PlayerESPArrows", {
     end
 })
 
-local FishLeft = VisualsTab:AddLeftGroupbox("Fish ESP")
+local FishLeft = ESPTab:AddLeftGroupbox("Fish ESP")
 FishLeft:AddToggle("FishESP", {
     Text = "Fish ESP",
     Default = false,
@@ -1037,7 +1055,7 @@ FishLeft:AddToggle("FishESPArrows", {
     end
 })
 
-local ESPSettings = VisualsTab:AddRightGroupbox("ESP Settings")
+local ESPSettings = ESPTab:AddRightGroupbox("ESP Settings")
 
 ESPSettings:AddToggle("ESPRainbow", {
     Text = "Rainbow Effect",
@@ -1187,6 +1205,26 @@ ESPSettings:AddSlider("ESPDistanceSizeRatio", {
     Rounding = 2,
     Callback = function(Value)
         ESPLibrary:SetDistanceSizeRatio(Value)
+    end
+})
+
+local ESPActions = ESPTab:AddRightGroupbox("Actions")
+
+ESPActions:AddButton({
+    Text = "Refresh Player ESP",
+    Func = function()
+        for _, Player in ipairs(Players:GetPlayers()) do
+            if Player ~= LocalPlayer then
+                AddPlayerESP(Player)
+            end
+        end
+    end
+})
+
+ESPActions:AddButton({
+    Text = "Refresh Fish ESP",
+    Func = function()
+        ScanForFish()
     end
 })
 
