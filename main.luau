@@ -559,16 +559,15 @@ local NoclipEnabled = false
 local NoclipConnection = nil
 local NoclipOriginal = {}
 
--- Client-walk / 10K desync feature.
-local ClientWalk10KEnabled = false
-local ClientWalk10KHeight = 10000
-local ClientWalk10KSpeed = 16
-local ClientWalk10KClone = nil
-local ClientWalk10KConnection = nil
-local ClientWalk10KCameraSubject = nil
-local ClientWalk10KOriginalTransparency = {}
-local ClientWalk10KGroundCFrame = nil
-local ClientWalk10KJumpVelocity = 0
+-- Main player helpers.
+local GodmodeEnabled = false
+local GodmodeConnection = nil
+local GodmodeForceField = nil
+
+local WalkTeleportEnabled = false
+local WalkTeleportSpeed = 16
+local WalkTeleportConnection = nil
+local WalkTeleportPosition = nil
 
 local function GetCharacter()
     return LocalPlayer.Character
@@ -807,228 +806,120 @@ local CharacterAddedConnection = LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 
-local function StopClientWalk10K()
-    ClientWalk10KEnabled = false
+local function StopGodmode()
+    GodmodeEnabled = false
 
-    if ClientWalk10KConnection then
-        ClientWalk10KConnection:Disconnect()
-        ClientWalk10KConnection = nil
+    if GodmodeConnection then
+        GodmodeConnection:Disconnect()
+        GodmodeConnection = nil
     end
 
-    local Character = LocalPlayer.Character
-
-    if Character then
-        for Part, Transparency in pairs(ClientWalk10KOriginalTransparency) do
-            if Part and Part.Parent then
-                Part.LocalTransparencyModifier = Transparency
-            end
-        end
+    if GodmodeForceField and GodmodeForceField.Parent then
+        GodmodeForceField:Destroy()
     end
-
-    table.clear(ClientWalk10KOriginalTransparency)
-
-    local Camera = Workspace.CurrentCamera
-    if Camera and ClientWalk10KCameraSubject then
-        pcall(function()
-            Camera.CameraSubject = ClientWalk10KCameraSubject
-        end)
-    end
-
-    ClientWalk10KCameraSubject = nil
-
-    if ClientWalk10KClone then
-        ClientWalk10KClone:Destroy()
-        ClientWalk10KClone = nil
-    end
-
-    ClientWalk10KGroundCFrame = nil
-    ClientWalk10KJumpVelocity = 0
+    GodmodeForceField = nil
 end
 
-local function PrepareClientWalkClone(Character)
-    if ClientWalk10KClone then
-        ClientWalk10KClone:Destroy()
-        ClientWalk10KClone = nil
-    end
+local function StartGodmode()
+    StopGodmode()
 
-    local Clone = Character:Clone()
-    Clone.Name = "MeowMadness_ClientWalk"
-
-    for _, Object in ipairs(Clone:GetDescendants()) do
-        if Object:IsA("Script")
-            or Object:IsA("LocalScript")
-            or Object:IsA("ModuleScript")
-        then
-            Object:Destroy()
-        elseif Object:IsA("BasePart") then
-            Object.CanCollide = false
-            Object.CanTouch = false
-            Object.CanQuery = false
-            Object.Massless = true
-        elseif Object:IsA("Humanoid") then
-            Object.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-            Object.AutoRotate = true
-            Object.BreakJointsOnDeath = false
-        end
-    end
-
-    Clone.Parent = Workspace
-    return Clone
-end
-
-local function StartClientWalk10K()
-    StopClientWalk10K()
-
-    local Character = LocalPlayer.Character
-    if not Character then
+    local Character = GetCharacter()
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    if not Character or not Humanoid then
         return
     end
 
-    local Root = GetCharacterRoot(Character)
-    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    GodmodeEnabled = true
 
-    if not Root or not Humanoid then
-        return
-    end
+    GodmodeForceField = Instance.new("ForceField")
+    GodmodeForceField.Name = "MeowMadnessGodmode"
+    GodmodeForceField.Visible = false
+    GodmodeForceField.Parent = Character
 
-    ClientWalk10KEnabled = true
-    ClientWalk10KGroundCFrame = Root.CFrame
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    Humanoid.Health = Humanoid.MaxHealth
 
-    ClientWalk10KClone = PrepareClientWalkClone(Character)
-    local CloneRoot = GetCharacterRoot(ClientWalk10KClone)
-    local CloneHumanoid = ClientWalk10KClone:FindFirstChildOfClass("Humanoid")
-
-    if not CloneRoot or not CloneHumanoid then
-        StopClientWalk10K()
-        return
-    end
-
-    CloneRoot.CFrame = Root.CFrame
-    ClientWalk10KCameraSubject = CloneHumanoid
-
-    for _, Object in ipairs(Character:GetDescendants()) do
-        if Object:IsA("BasePart") then
-            ClientWalk10KOriginalTransparency[Object] = Object.LocalTransparencyModifier
-            Object.LocalTransparencyModifier = 1
-        end
-    end
-
-    local Camera = Workspace.CurrentCamera
-    if Camera then
-        pcall(function()
-            Camera.CameraSubject = CloneHumanoid
-        end)
-    end
-
-    ClientWalk10KConnection = RunService.RenderStepped:Connect(function(DeltaTime)
-        if not ClientWalk10KEnabled then
+    GodmodeConnection = RunService.Heartbeat:Connect(function()
+        if not GodmodeEnabled then
             return
         end
 
-        local RealCharacter = LocalPlayer.Character
-        local RealRoot = GetCharacterRoot(RealCharacter)
-        local VisualRoot = GetCharacterRoot(ClientWalk10KClone)
-        local VisualHumanoid = ClientWalk10KClone and ClientWalk10KClone:FindFirstChildOfClass("Humanoid")
-
-        if not RealCharacter or not RealRoot or not VisualRoot or not VisualHumanoid then
-            StopClientWalk10K()
+        local CurrentCharacter = GetCharacter()
+        local CurrentHumanoid = CurrentCharacter and CurrentCharacter:FindFirstChildOfClass("Humanoid")
+        if not CurrentCharacter or not CurrentHumanoid then
+            StopGodmode()
             return
         end
 
-        -- Keep the real character 10,000 studs above its ground position.
-        local GroundPosition = ClientWalk10KGroundCFrame.Position
-        local ServerCFrame = CFrame.new(
-            GroundPosition.X,
-            GroundPosition.Y + ClientWalk10KHeight,
-            GroundPosition.Z
-        ) * CFrame.Angles(
-            ClientWalk10KGroundCFrame:ToOrientation()
-        )
-
-        pcall(function()
-            RealCharacter:PivotTo(ServerCFrame)
-        end)
-
-        RealRoot.AssemblyLinearVelocity = Vector3.zero
-        RealRoot.AssemblyAngularVelocity = Vector3.zero
-
-        -- Move the local visual character using the current camera.
-        local CameraNow = Workspace.CurrentCamera
-        local Move = Vector3.zero
-
-        if CameraNow then
-            local Forward = Vector3.new(
-                CameraNow.CFrame.LookVector.X,
-                0,
-                CameraNow.CFrame.LookVector.Z
-            )
-
-            local Right = Vector3.new(
-                CameraNow.CFrame.RightVector.X,
-                0,
-                CameraNow.CFrame.RightVector.Z
-            )
-
-            if Forward.Magnitude > 0 then
-                Forward = Forward.Unit
-            end
-
-            if Right.Magnitude > 0 then
-                Right = Right.Unit
-            end
-
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                Move += Forward
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                Move -= Forward
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                Move += Right
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                Move -= Right
-            end
+        if not GodmodeForceField or GodmodeForceField.Parent ~= CurrentCharacter then
+            GodmodeForceField = Instance.new("ForceField")
+            GodmodeForceField.Name = "MeowMadnessGodmode"
+            GodmodeForceField.Visible = false
+            GodmodeForceField.Parent = CurrentCharacter
         end
 
-        if Move.Magnitude > 1 then
-            Move = Move.Unit
+        CurrentHumanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        if CurrentHumanoid.Health < CurrentHumanoid.MaxHealth then
+            CurrentHumanoid.Health = CurrentHumanoid.MaxHealth
+        end
+    end)
+end
+
+local function StopWalkTeleport()
+    WalkTeleportEnabled = false
+
+    if WalkTeleportConnection then
+        WalkTeleportConnection:Disconnect()
+        WalkTeleportConnection = nil
+    end
+
+    WalkTeleportPosition = nil
+end
+
+local function StartWalkTeleport()
+    StopWalkTeleport()
+
+    local Root = GetRoot()
+    if not Root then
+        return
+    end
+
+    WalkTeleportEnabled = true
+    WalkTeleportPosition = Root.CFrame
+
+    WalkTeleportConnection = RunService.RenderStepped:Connect(function(DeltaTime)
+        if not WalkTeleportEnabled then
+            return
         end
 
-        local NewPosition = VisualRoot.Position + Move * ClientWalk10KSpeed * DeltaTime
+        local Character = GetCharacter()
+        local CurrentRoot = GetRoot()
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        if not Character or not CurrentRoot or not Humanoid then
+            StopWalkTeleport()
+            return
+        end
 
-        if Move.Magnitude > 0 then
-            local Look = Move.Unit
-            VisualRoot.CFrame = CFrame.lookAt(NewPosition, NewPosition + Look)
+        local MoveDirection = Humanoid.MoveDirection
+        if MoveDirection.Magnitude > 0 then
+            local Step = MoveDirection.Unit * WalkTeleportSpeed * DeltaTime
+            local NewPosition = WalkTeleportPosition.Position + Step
+            local Look = MoveDirection.Unit
+
+            WalkTeleportPosition = CFrame.lookAt(NewPosition, NewPosition + Look)
+
+            pcall(function()
+                Character:PivotTo(WalkTeleportPosition)
+            end)
         else
-            VisualRoot.CFrame = CFrame.new(NewPosition) * VisualRoot.CFrame.Rotation
+            -- Keep the last teleported position exact even when standing still.
+            pcall(function()
+                Character:PivotTo(WalkTeleportPosition)
+            end)
         end
 
-        -- Basic local jump for the visual character.
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) and VisualRoot.Position.Y <= ClientWalk10KGroundCFrame.Position.Y + 3 then
-            ClientWalk10KJumpVelocity = 50
-        end
-
-        if ClientWalk10KJumpVelocity ~= 0 then
-            ClientWalk10KJumpVelocity -= workspace.Gravity * DeltaTime
-            NewPosition = VisualRoot.Position + Vector3.new(
-                0,
-                ClientWalk10KJumpVelocity * DeltaTime,
-                0
-            )
-
-            VisualRoot.CFrame = CFrame.new(NewPosition) * VisualRoot.CFrame.Rotation
-
-            if NewPosition.Y <= ClientWalk10KGroundCFrame.Position.Y then
-                NewPosition = Vector3.new(
-                    NewPosition.X,
-                    ClientWalk10KGroundCFrame.Position.Y,
-                    NewPosition.Z
-                )
-                ClientWalk10KJumpVelocity = 0
-                VisualRoot.CFrame = CFrame.new(NewPosition) * VisualRoot.CFrame.Rotation
-            end
-        end
+        CurrentRoot.AssemblyLinearVelocity = Vector3.zero
+        CurrentRoot.AssemblyAngularVelocity = Vector3.zero
     end)
 end
 
@@ -1047,53 +938,57 @@ MainLeft:AddButton({
     end
 })
 
-local ClientWalkGroup = MainTab:AddLeftGroupbox("Client Walk")
+local MainUtility = MainTab:AddLeftGroupbox("Player Utility")
 
-ClientWalkGroup:AddToggle("ClientWalk10K", {
-    Text = "Client Walk / 10K",
+MainUtility:AddToggle("Godmode", {
+    Text = "Godmode",
     Default = false,
     Callback = function(Value)
-        ClientWalk10KEnabled = Value
-
         if Value then
-            StartClientWalk10K()
+            StartGodmode()
         else
-            StopClientWalk10K()
+            StopGodmode()
         end
     end
-}):AddKeyPicker("ClientWalk10KKey", {
+}):AddKeyPicker("GodmodeKey", {
     Default = "None",
     SyncToggleState = true,
     Mode = "Toggle",
-    Text = "Client Walk / 10K",
+    Text = "Godmode",
     NoUI = false
 })
 
-ClientWalkGroup:AddSlider("ClientWalk10KHeight", {
-    Text = "Server Height",
-    Default = 10000,
-    Min = 1000,
-    Max = 20000,
-    Rounding = 0,
-    Suffix = " studs",
+MainUtility:AddToggle("WalkTeleport", {
+    Text = "Walk Teleport",
+    Default = false,
     Callback = function(Value)
-        ClientWalk10KHeight = Value
+        if Value then
+            StartWalkTeleport()
+        else
+            StopWalkTeleport()
+        end
     end
+}):AddKeyPicker("WalkTeleportKey", {
+    Default = "None",
+    SyncToggleState = true,
+    Mode = "Toggle",
+    Text = "Walk Teleport",
+    NoUI = false
 })
 
-ClientWalkGroup:AddSlider("ClientWalk10KSpeed", {
-    Text = "Client Walk Speed",
+MainUtility:AddSlider("WalkTeleportSpeed", {
+    Text = "Walk Teleport Speed",
     Default = 16,
     Min = 1,
-    Max = 200,
+    Max = 300,
     Rounding = 0,
     Suffix = " sps",
     Callback = function(Value)
-        ClientWalk10KSpeed = Value
+        WalkTeleportSpeed = Value
     end
 })
 
-ClientWalkGroup:AddLabel("Local visual movement while the real character is held above the ground.")
+MainUtility:AddLabel("Walk normally and your character is teleported to the walked position.")
 
 local MainPlayer = MainTab:AddRightGroupbox("Player")
 
@@ -1888,7 +1783,8 @@ ESPActions:AddButton({
 })
 
 Library:OnUnload(function()
-    StopClientWalk10K()
+    StopGodmode()
+    StopWalkTeleport()
     StopFly()
     SetNoclip(false)
     if CharacterAddedConnection then
