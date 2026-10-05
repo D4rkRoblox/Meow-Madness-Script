@@ -7,10 +7,12 @@ local ESPLibrary = loadstring(game:HttpGet(
 ))()
 
 local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local OriginalLighting = {
     Brightness = Lighting.Brightness,
@@ -543,6 +545,192 @@ ESPLibrary:SetArrows(false)
 ESPLibrary:SetArrowRadius(250)
 ESPLibrary:SetDistanceSizeRatio(0.8)
 
+
+-- Movement
+local FlyEnabled = false
+local FlySpeed = 80
+local FlyVelocity = nil
+local FlyGyro = nil
+local FlyConnection = nil
+local NoclipEnabled = false
+local NoclipConnection = nil
+local NoclipOriginal = {}
+
+local function GetCharacter()
+    return LocalPlayer.Character
+end
+
+local function GetRoot()
+    local Character = GetCharacter()
+    if not Character then
+        return nil
+    end
+
+    return Character:FindFirstChild("HumanoidRootPart") or Character.PrimaryPart
+end
+
+local function StopFly()
+    FlyEnabled = false
+
+    if FlyConnection then
+        FlyConnection:Disconnect()
+        FlyConnection = nil
+    end
+
+    if FlyVelocity then
+        FlyVelocity:Destroy()
+        FlyVelocity = nil
+    end
+
+    if FlyGyro then
+        FlyGyro:Destroy()
+        FlyGyro = nil
+    end
+
+    local Character = GetCharacter()
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    if Humanoid then
+        Humanoid.AutoRotate = true
+    end
+end
+
+local function StartFly()
+    StopFly()
+
+    local Character = GetCharacter()
+    local Root = GetRoot()
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+    if not Character or not Root or not Humanoid then
+        return
+    end
+
+    FlyEnabled = true
+    Humanoid.AutoRotate = false
+
+    FlyVelocity = Instance.new("BodyVelocity")
+    FlyVelocity.Name = "MeowMadnessFlyVelocity"
+    FlyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    FlyVelocity.P = 90000
+    FlyVelocity.Velocity = Vector3.zero
+    FlyVelocity.Parent = Root
+
+    FlyGyro = Instance.new("BodyGyro")
+    FlyGyro.Name = "MeowMadnessFlyGyro"
+    FlyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    FlyGyro.P = 90000
+    FlyGyro.D = 1000
+    FlyGyro.CFrame = Root.CFrame
+    FlyGyro.Parent = Root
+
+    FlyConnection = RunService.RenderStepped:Connect(function()
+        if not FlyEnabled then
+            return
+        end
+
+        local CurrentCharacter = GetCharacter()
+        local CurrentRoot = GetRoot()
+        local CurrentHumanoid = CurrentCharacter and CurrentCharacter:FindFirstChildOfClass("Humanoid")
+        local Camera = Workspace.CurrentCamera
+
+        if not CurrentCharacter or not CurrentRoot or not CurrentHumanoid or not Camera then
+            StopFly()
+            return
+        end
+
+        if not FlyVelocity or FlyVelocity.Parent ~= CurrentRoot then
+            StartFly()
+            return
+        end
+
+        local Look = Camera.CFrame.LookVector
+        local Right = Camera.CFrame.RightVector
+        local Direction = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            Direction += Look
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            Direction -= Look
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            Direction += Right
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            Direction -= Right
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            Direction += Vector3.yAxis
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            Direction -= Vector3.yAxis
+        end
+
+        if Direction.Magnitude > 0 then
+            Direction = Direction.Unit
+        end
+
+        FlyVelocity.Velocity = Direction * FlySpeed
+        FlyGyro.CFrame = CFrame.lookAt(CurrentRoot.Position, CurrentRoot.Position + Look)
+        CurrentHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    end)
+end
+
+local function SetNoclip(Value)
+    NoclipEnabled = Value
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    if not Value then
+        for Part, OriginalCanCollide in pairs(NoclipOriginal) do
+            if Part and Part.Parent then
+                Part.CanCollide = OriginalCanCollide
+            end
+        end
+        table.clear(NoclipOriginal)
+        return
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        local Character = GetCharacter()
+        if not Character then
+            return
+        end
+
+        for _, Part in ipairs(Character:GetDescendants()) do
+            if Part:IsA("BasePart") then
+                if NoclipOriginal[Part] == nil then
+                    NoclipOriginal[Part] = Part.CanCollide
+                end
+                Part.CanCollide = false
+            end
+        end
+    end)
+end
+
+local function SetupMovementOnCharacter()
+    if FlyEnabled then
+        task.defer(StartFly)
+    end
+
+    if NoclipEnabled and not NoclipConnection then
+        SetNoclip(true)
+    end
+end
+
+local CharacterAddedConnection = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.25)
+    SetupMovementOnCharacter()
+end)
+
 local MainLeft = MainTab:AddLeftGroupbox("Main")
 MainLeft:AddLabel("Meow Madness")
 MainLeft:AddLabel("Player: " .. LocalPlayer.Name)
@@ -553,6 +741,125 @@ MainRight:AddToggle("MainEnabled", {
     Default = true,
     Callback = function(Value)
         print("Main Enabled:", Value)
+    end
+})
+
+local MainPlayer = MainTab:AddLeftGroupbox("Player")
+
+MainPlayer:AddSlider("MainWalkSpeed", {
+    Text = "Walk Speed",
+    Default = 16,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Callback = function(Value)
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid then
+            Humanoid.WalkSpeed = Value
+        end
+    end
+})
+
+MainPlayer:AddSlider("MainJumpPower", {
+    Text = "Jump Power",
+    Default = 50,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Callback = function(Value)
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid then
+            Humanoid.UseJumpPower = true
+            Humanoid.JumpPower = Value
+        end
+    end
+})
+
+MainPlayer:AddButton({
+    Text = "Reset Character",
+    Func = function()
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid then
+            Humanoid.Health = 0
+        end
+    end
+})
+
+
+local MovementGroup = MainTab:AddRightGroupbox("Movement")
+
+MovementGroup:AddToggle("Fly", {
+    Text = "Fly",
+    Default = false,
+    Callback = function(Value)
+        FlyEnabled = Value
+        if Value then
+            StartFly()
+        else
+            StopFly()
+        end
+    end
+}):AddKeyPicker("FlyKey", {
+    Default = "None",
+    SyncToggleState = true,
+    Mode = "Toggle",
+    Text = "Fly",
+    NoUI = false
+})
+
+MovementGroup:AddSlider("FlySpeed", {
+    Text = "Fly Speed",
+    Default = 80,
+    Min = 10,
+    Max = 300,
+    Rounding = 0,
+    Suffix = " sps",
+    Callback = function(Value)
+        FlySpeed = Value
+    end
+})
+
+MovementGroup:AddLabel("Fly: W/A/S/D + Space / LeftCtrl")
+
+MovementGroup:AddToggle("Noclip", {
+    Text = "Noclip",
+    Default = false,
+    Callback = function(Value)
+        SetNoclip(Value)
+    end
+}):AddKeyPicker("NoclipKey", {
+    Default = "None",
+    SyncToggleState = true,
+    Mode = "Toggle",
+    Text = "Noclip",
+    NoUI = false
+})
+
+local MainServer = MainTab:AddRightGroupbox("Server")
+
+MainServer:AddLabel("Place ID: " .. tostring(game.PlaceId))
+MainServer:AddLabel("Job ID: " .. tostring(game.JobId))
+
+MainServer:AddButton({
+    Text = "Rejoin Server",
+    Func = function()
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+        end)
+    end
+})
+
+MainServer:AddButton({
+    Text = "Copy Job ID",
+    Func = function()
+        if typeof(setclipboard) == "function" then
+            pcall(function()
+                setclipboard(game.JobId)
+            end)
+        end
     end
 })
 
@@ -1231,6 +1538,11 @@ ESPActions:AddButton({
 })
 
 Library:OnUnload(function()
+    StopFly()
+    SetNoclip(false)
+    if CharacterAddedConnection then
+        CharacterAddedConnection:Disconnect()
+    end
     if FullBrightConnection then
         FullBrightConnection:Disconnect()
     end
